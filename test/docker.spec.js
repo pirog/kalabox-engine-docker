@@ -2,7 +2,7 @@
 
 var expect = require('chai').expect;
 var sinon = require('sinon');
-var docker = require('../lib/engine/docker.js');
+var docker = require('./docker.js');
 
 var fakeContainers = [
   'not_from_kalabox',

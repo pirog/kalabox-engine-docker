@@ -1,7 +1,7 @@
 'use strict';
 
 var rewire = require('rewire');
-var docker = rewire('../../lib/engine/docker.js');
+var docker = rewire('./docker.js');
 var chai = require('chai');
 var expect = chai.expect;
 var assert = chai.assert;
