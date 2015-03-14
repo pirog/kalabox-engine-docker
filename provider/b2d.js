@@ -6,7 +6,7 @@
 'use strict';
 
 var fs = require('fs');
-var core = require('../../core.js');
+var core = require('./../../../lib/core.js');
 var _exec = require('child_process').exec;
 var events = core.events;
 var fs = require('fs');

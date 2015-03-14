@@ -6,8 +6,8 @@
  */
 
 var async = require('async');
-var core = require('../core.js');
-var util = require('../util.js');
+var core = require('./../../lib/core.js');
+var util = require('./../../lib//util.js');
 var shell = util.shell;
 var fs = require('fs');
 var path = require('path');

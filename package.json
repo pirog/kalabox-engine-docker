@@ -8,7 +8,7 @@
     "wordpress"
   ],
   "version": "0.3.2",
-  "main": "kalabox.js",
+  "main": "docker.js",
   "repository": {
     "type": "git",
     "url": "https://github.com/kalabox/kalabox-engine-docker"
