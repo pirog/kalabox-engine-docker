@@ -1,0 +1,36 @@
+{
+  "name": "kalabox-engine-docker",
+  "description": "The Docker container engine for Kalabox",
+  "keywords": [
+    "docker",
+    "kalabox",
+    "drupal",
+    "wordpress"
+  ],
+  "version": "0.3.0",
+  "main": "kalabox.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kalabox/kalabox-engine-docker"
+  },
+  "bugs": {
+    "email": "mike@kalamuna.com",
+    "url": "http://github.com/kalabox/kalabox-issues"
+  },
+  "dependencies": {
+    "async": "^0.9.0",
+    "chalk": "~0.5.1",
+    "dockerode": "~2.0.3",
+    "fileinput": "https://github.com/kalabox/node-fileinput/tarball/master",
+    "lodash": "~2.4.1",
+    "string": "^3.0.0"
+  },
+  "devDependencies": {
+    "grunt": "^0.4.5",
+    "grunt-bump": "0.0.16",
+    "grunt-contrib-jshint": "~0.10.0",
+    "grunt-jscs": "~0.8.1",
+    "jshint-stylish": "~1.0.0",
+    "matchdep": "^0.3.0"
+  }
+}
