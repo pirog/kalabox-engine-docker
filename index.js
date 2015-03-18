@@ -9,7 +9,12 @@ var chalk = require('chalk');
 var PROVIDER_UP_ATTEMPTS = 3;
 var PROVIDER_DOWN_ATTEMPTS = 3;
 
-module.exports = function(engine, events, tasks, services) {
+module.exports = function(kbox) {
+
+  var engine = kbox.engine;
+  var events = kbox.core.events;
+  var tasks = kbox.core.tasks;
+  var services = kbox.services;
 
   if (engine.provider.hasTasks) {
     // Tasks
@@ -33,6 +38,7 @@ module.exports = function(engine, events, tasks, services) {
         } else {
           console.log('down');
         }
+        done();
       });
     });
 
