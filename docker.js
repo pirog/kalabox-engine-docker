@@ -377,7 +377,7 @@ module.exports = function(kbox) {
   };
 
   // @todo: document
-  var query = function(image, cmd, createOptions, startOptions, callback, done) {
+  var query = function(image, cmd, createOpts, startOpts, callback, done) {
     var opts = {
       Hostname: '',
       User: '',
@@ -394,7 +394,7 @@ module.exports = function(kbox) {
       VolumesFrom: ''
     };
 
-    _.extend(opts, createOptions);
+    _.extend(opts, createOpts);
 
     logDebug('DOCKER => Creating QUERY container.');
 
@@ -423,7 +423,7 @@ module.exports = function(kbox) {
             logDebug('DOCKER => Starting QUERY container.');
 
             // Start container.
-            container.start(startOptions, function(err, data) {
+            container.start(startOpts, function(err, data) {
               if (err) {
                 callback(err);
               } else {
@@ -638,5 +638,5 @@ module.exports = function(kbox) {
     stop: stop,
     teardown: teardown
   };
-  
+
 };
