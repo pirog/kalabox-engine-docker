@@ -287,6 +287,147 @@ module.exports = function(kbox) {
     }
   };
 
+  var nextAvailableTempContainerName = function(callback) {
+    if (typeof callback !== 'function') {
+      throw new TypeError('Invalid callback function: ' + callback);
+    }
+    var maxTempContainers = 100;
+    var rec = function(i) {
+      if (i > maxTempContainers) {
+        callback(new Error('Too many temp containers!'));
+      } else {
+        var name = ['kalabox', 'temp' + i].join('_');
+        findGenericContainer(name, function(err, generic) {
+          if (err) {
+            callback(err);
+          } else if (generic) {
+            rec(i + 1);
+          } else {
+            callback(null, name);
+          }
+        });
+      }
+    };
+    rec(1);
+  };
+
+  var once = function(image, cmd, crtOpts, strOpts, callback, done) {
+    if (typeof image !== 'string') {
+      throw new TypeError('Invalid image: ' + image);
+    }
+    if (typeof cmd !== 'string' && !Array.isArray(cmd)) {
+      throw new TypeError('Invalid cmd: ' + cmd);
+    }
+    if (typeof crtOpts !== 'null' && typeof crtOpts !== 'object') {
+      throw new TypeError('Invalid crtOpts: ' + crtOpts);
+    }
+    if (typeof strOpts !== 'null' && typeof strOpts !== 'object') {
+      throw new TypeError('Invalid strOpts: ' + strOpts);
+    }
+    if (typeof callback !== 'function') {
+      throw new TypeError('Invalid callback function: ' + callback);
+    }
+    if (typeof done !== 'function') {
+      throw new TypeError('Invalid done function: ' + done);
+    }
+    nextAvailableTempContainerName(function(err, name) {
+      if (err) {
+        done(err);
+      } else {
+        var opts = {
+          Hostname: '',
+          name: name,
+          User: '',
+          AttachStdin: false,
+          AttachStdout: false,
+          AttachStderr: false,
+          Tty: true,
+          OpenStdin: false,
+          StdinOnce: false,
+          Env: null,
+          Cmd: cmd,
+          Image: image,
+          Volumes: {},
+          VolumesFrom: ''
+        };
+
+        _.extend(opts, crtOpts);
+
+        docker.createContainer(opts, function(err, container) {
+          if (err) {
+            done(err);
+          } else {
+            container.start(strOpts, function(startErr) {
+              if (startErr) {
+                container.remove({force:true}, function(removeErr) {
+                  if (startErr) {
+                    done(startErr);
+                  } else {
+                    done(removeErr);
+                  }
+                });
+              } else {
+                findGenericContainerErr(container.id, function(err, generic) {
+                  if (err) {
+                    done(err);
+                  } else {
+                    callback(generic, function(err) {
+                      container.remove({force:true}, function(removeErr) {
+                        if (err) {
+                          done(err);
+                        } else {
+                          done(removeErr);
+                        }
+                      });
+                    });
+                  }
+                });
+              }
+            });
+          }
+        });
+      }
+    });
+  };
+
+  // @todo: document
+  var exec = function(cid, cmd, callback) {
+    if (typeof cid !== 'string') {
+      throw new TypeError('Invalid cid: ' + cid);
+    }
+    if (typeof cmd === 'string') {
+      cmd = [cmd];
+    }
+    if (!Array.isArray(cmd)) {
+      throw new TypeError('Invalid cmd: ' + cmd);
+    }
+    if (typeof callback !== 'function') {
+      throw new TypeError('Invalid callback function: ' + callback);
+    }
+
+    getEnsure(cid, 'exec', function(err, container) {
+      if (err) {
+        callback(err);
+      } else {
+        var opts = {
+          AttachStdout: true,
+          AttachStderr: true,
+          Tty: false,
+          Cmd: cmd
+        };
+        container.exec(opts, function(err, exec) {
+          if (err) {
+            callback(err);
+          } else {
+            exec.start(function(err, stream) {
+              callback(err, stream);
+            });
+          }
+        });
+      }
+    });
+  };
+
   var run = function(image, cmd, streamIn, streamOut,
     createOptions, startOptions, callback) {
     var opts = {
@@ -625,6 +766,7 @@ module.exports = function(kbox) {
   return {
     build: build,
     create: create,
+    exec: exec,
     get: get,
     getEnsure: getEnsure,
     getProviderModule: getProviderModule,
@@ -632,6 +774,7 @@ module.exports = function(kbox) {
     init: init,
     inspect: inspect,
     list: list,
+    once: once,
     pull: pull,
     remove: remove,
     run: run,
