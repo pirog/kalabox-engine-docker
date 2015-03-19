@@ -154,7 +154,7 @@ module.exports = function(kbox) {
     });
   };
 
-  var info = exports.info = function(cid, callback) {
+  var info = function(cid, callback) {
     list(function(err, containers) {
       if (err) {
         callback(err);
@@ -628,6 +628,7 @@ module.exports = function(kbox) {
     get: get,
     getEnsure: getEnsure,
     getProviderModule: getProviderModule,
+    info: info,
     init: init,
     inspect: inspect,
     list: list,
