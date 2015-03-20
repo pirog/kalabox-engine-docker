@@ -121,6 +121,31 @@ module.exports = function(kbox) {
     });
   };
 
+  var findGenericContainer = function(cid, callback) {
+    list(function(err, containers) {
+      if (err) {
+        callback(err);
+      } else {
+        var found = _.find(containers, function(container) {
+          return container.id === cid || container.name === cid;
+        });
+        callback(null, found);
+      }
+    });
+  };
+
+  var findGenericContainerErr = function(cid, callback) {
+    findGenericContainer(cid, function(err, genericContainer) {
+      if (err) {
+        callback(err);
+      } else if (!genericContainer) {
+        callback(new Error('The container "' + cid + '" does NOT exist'));
+      } else {
+        callback(null, genericContainer);
+      }
+    });
+  };
+
   var get = function(searchValue, callback) {
     list(function(err, containers) {
       if (err) {
