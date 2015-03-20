@@ -343,10 +343,10 @@ module.exports = function(kbox) {
     if (typeof cmd !== 'string' && !Array.isArray(cmd)) {
       throw new TypeError('Invalid cmd: ' + cmd);
     }
-    if (typeof crtOpts !== 'null' && typeof crtOpts !== 'object') {
+    if (crtOpts !== null && typeof crtOpts !== 'object') {
       throw new TypeError('Invalid crtOpts: ' + crtOpts);
     }
-    if (typeof strOpts !== 'null' && typeof strOpts !== 'object') {
+    if (strOpts !== null && typeof strOpts !== 'object') {
       throw new TypeError('Invalid strOpts: ' + strOpts);
     }
     if (typeof callback !== 'function') {
