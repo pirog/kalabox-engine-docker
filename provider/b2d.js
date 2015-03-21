@@ -137,8 +137,8 @@ module.exports = function(kbox) {
         // Manually do the file sharing until this is merged in
         // https://github.com/boot2docker/boot2docker-cli/pull/344
         if (process.platform === 'linux') {
-          var shareCmd = 'VBoxManage sharedfolder add "Kalabox2" --name "Users"' +
-          ' --hostpath "/home"';
+          var shareCmd = 'VBoxManage sharedfolder add "Kalabox2"' +
+          ' --name "Users" --hostpath "/home"';
           _exec(shareCmd, function(error, stdout, stderr) {
             // This can fail silently without much hullabaloo
             if (error) {
@@ -317,4 +317,3 @@ module.exports = function(kbox) {
   };
 
 };
-
