@@ -41,7 +41,7 @@ module.exports = function(kbox) {
 
   var getProviderModule = function() {
     // @todo: Change this to check platform.
-    return require('./provider/b2d.js');
+    return require('./provider/b2d.js')(kbox);
   };
 
   var inspect = function(container, callback) {
