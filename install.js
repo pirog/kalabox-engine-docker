@@ -1,6 +1,7 @@
 'use strict';
 
 var fs = require('fs');
+var path = require('path');
 
 var BOOT2DOCKER = 'Boot2Docker';
 
@@ -36,7 +37,7 @@ module.exports = function(kbox) {
     step.description = 'Check if boot2docker profile is set.';
     step.deps = [];
     step.all.darwin = function(state, done) {
-      var filepath = path.join(config.sysProviderRoot, 'profile');
+      var filepath = path.join(state.config.sysProviderRoot, 'profile');
       fs.exists(filepath, function(exists) {
         state.isBoot2dockerProfileSet = exists;
         done();
