@@ -8,6 +8,7 @@ var BOOT2DOCKER = 'Boot2Docker';
 var PROVIDER_URL_V1_4_1 =
   'https://github.com/boot2docker/osx-installer/releases/download/v1.4.1/' +
   'Boot2Docker-1.4.1.pkg';
+var PROVIDER_URL_PACKAGE = PROVIDER_URL_V1_4_1;
 
 var PROVIDER_URL_PROFILE =
   'https://raw.githubusercontent.com/' +
@@ -41,8 +42,11 @@ module.exports = function(kbox) {
     step.description = 'Check if boot2docker profile is set.';
     step.deps = [];
     step.all.darwin = function(state, done) {
-      var filepath = path.join(state.config.sysProviderRoot, 'profile');
-      fs.exists(filepath, function(exists) {
+      state.boot2dockerProfileFilepath = path.join(
+        state.config.sysProviderRoot,
+        'profile'
+      );
+      fs.exists(state.boot2dockerProfileFilepath, function(exists) {
         state.isBoot2dockerProfileSet = exists;
         done();
       });
@@ -51,7 +55,7 @@ module.exports = function(kbox) {
 
   // Download docker dependencies
   kbox.install.registerStep(function(step) {
-    step.name = 'download-docker-dependencies';
+    step.name = 'download-boot2docker-dependencies';
     step.description = 'Download docker dependencies';
     step.deps = [
       'is-boot2docker-installed',
@@ -69,11 +73,19 @@ module.exports = function(kbox) {
       // Boot2docker profile.
       if (!state.isBoot2dockerProfileSet) {
         state.dockerDependencyDownloads.push(PROVIDER_URL_PROFILE);
+        state.boot2dockerProfileDownloadFilepath = path.join(
+          state.downloadDir,
+          path.basename(PROVIDER_URL_PROFILE)
+        );
       }
 
       // Boot2docker package.
       if (!state.isBoot2DockerInstalled) {
-        state.dockerDependencyDownloads.push(PROVIDER_URL_V1_4_1);
+        state.dockerDependencyDownloads.push(PROVIDER_URL_PACKAGE);
+        state.boot2dockerPackageDownloadFilepath = path.join(
+          state.downloadDir,
+          path.basename(PROVIDER_URL_PACKAGE);
+        );
       }
 
       // Download dependencies/
@@ -89,6 +101,32 @@ module.exports = function(kbox) {
         done();
       }
 
+    };
+  });
+
+  // Setup Boot2docker profile.
+  kbox.install.registerStep(function(step, done) {
+    step.name = 'boot2docker-profile';
+    step.description = 'Setup the boot2docker profile.';
+    step.deps = ['download-boot2docker-dependencies'];
+    step.all.darwin = function(state, done) {
+      if (!state.isBoot2dockerProfileSet) {
+        mkdirp.sync(state.config.sysProviderRoot);
+        var src = state.boot2dockerProfileDownloadFilepath;
+        var dst = state.boot2dockerProfileFilepath;
+        fs.rename(src, dst, function(err) {
+          if (err) {
+            state.log(notOk);
+            done(err);
+          } else {
+            state.log(ok);
+            done();
+          }
+        });
+      } else {
+        state.log(ok);
+        done();
+      }
     };
   });
 
