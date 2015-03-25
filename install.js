@@ -2,6 +2,7 @@
 
 var fs = require('fs');
 var path = require('path');
+var mkdirp = require('mkdirp');
 
 var BOOT2DOCKER = 'Boot2Docker';
 
@@ -84,7 +85,7 @@ module.exports = function(kbox) {
         state.dockerDependencyDownloads.push(PROVIDER_URL_PACKAGE);
         state.boot2dockerPackageDownloadFilepath = path.join(
           state.downloadDir,
-          path.basename(PROVIDER_URL_PACKAGE);
+          path.basename(PROVIDER_URL_PACKAGE)
         );
       }
 
@@ -95,7 +96,7 @@ module.exports = function(kbox) {
       });
       if (urls.length > 0) {
         kbox.util.download.downloadFiles(urls, state.downloadDir, function() {
-          done();          
+          done();
         });
       } else {
         done();
@@ -116,15 +117,15 @@ module.exports = function(kbox) {
         var dst = state.boot2dockerProfileFilepath;
         fs.rename(src, dst, function(err) {
           if (err) {
-            state.log(notOk);
+            state.log(state.status.notOk);
             done(err);
           } else {
-            state.log(ok);
+            state.log(state.status.ok);
             done();
           }
         });
       } else {
-        state.log(ok);
+        state.log(state.status.ok);
         done();
       }
     };
