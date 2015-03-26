@@ -96,7 +96,8 @@ module.exports = function(kbox) {
         state.log(url);
       });
       if (urls.length > 0) {
-        kbox.util.download.downloadFiles(urls, state.downloadDir, function(err) {
+        var dir = state.downloadDir;
+        kbox.util.download.downloadFiles(urls, dir, function(err) {
           if (err) {
             state.log(state.status.notOk);
             done(err);
