@@ -67,7 +67,7 @@ module.exports = function(kbox) {
 
       // Init.
       if (!state.downloadDir) {
-        state.downloaDir = kbox.util.disk.getTempDir();
+        state.downloadDir = kbox.util.disk.getTempDir();
       }
       state.dockerDependencyDownloads = [];
 
