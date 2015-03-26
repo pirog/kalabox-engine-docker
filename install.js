@@ -49,6 +49,7 @@ module.exports = function(kbox) {
       );
       fs.exists(state.boot2dockerProfileFilepath, function(exists) {
         state.isBoot2dockerProfileSet = exists;
+        state.log('Boot2docker profile set?: ' + exists);
         done();
       });
     };
@@ -95,8 +96,14 @@ module.exports = function(kbox) {
         state.log(url);
       });
       if (urls.length > 0) {
-        kbox.util.download.downloadFiles(urls, state.downloadDir, function() {
-          done();
+        kbox.util.download.downloadFiles(urls, state.downloadDir, function(err) {
+          if (err) {
+            state.log(state.status.notOk);
+            done(err);
+          } else {
+            state.log(state.status.ok);
+            done();
+          }
         });
       } else {
         done();
@@ -106,7 +113,7 @@ module.exports = function(kbox) {
   });
 
   // Setup Boot2docker profile.
-  kbox.install.registerStep(function(step, done) {
+  kbox.install.registerStep(function(step) {
     step.name = 'boot2docker-profile';
     step.description = 'Setup the boot2docker profile.';
     step.deps = ['download-boot2docker-dependencies'];
@@ -128,6 +135,74 @@ module.exports = function(kbox) {
         state.log(state.status.ok);
         done();
       }
+    };
+  });
+
+  // Install Boot2docker.
+  kbox.install.registerStep(function(step) {
+    step.name = 'install-engine';
+    step.description  = 'Install boot2docker package.';
+    step.deps = [
+      'boot2docker-profile',
+      'download-boot2docker-dependencies'
+    ];
+    step.all.darwin = function(state, done) {
+      if (!state.isBoot2DockerInstalled) {
+        kbox.util.disk.getMacVolume(function(err, volume) {
+          if (err) {
+            state.log(state.status.notOk);
+            done(err);
+          } else {
+            var pkg = state.boot2dockerPackageDownloadFilepath;
+            var cmd = kbox.install.cmd.buildInstallCmd(pkg, volume);
+            var cmds = [cmd];
+            var child = kbox.install.cmd.runCmdsAsync(cmds);
+            child.stdout.on('data', function(data) {
+              state.log(data);
+            });
+            child.stdout.on('end', function() {
+              state.log(state.status.ok);
+              done();
+            });
+            child.stderr.on('data', function(data) {
+              state.log(state.status.notOk);
+              done(new Error(data));
+            });
+          }
+        });
+      } else {
+        state.log(state.status.ok);
+        done();
+      }
+    };
+  });
+
+  // Init and start Boot2docker.
+  kbox.install.registerStep(function(step) {
+    step.name = 'init-engine';
+    step.description = 'Init and start boot2docker';
+    step.deps = ['install-engine'];
+    step.all.darwin = function(state, done) {
+      var iso = path.join(state.config.sysProviderRoot, 'boot2docker.iso');
+      console.log('iso -> ' + iso);
+      var exists = fs.existsSync(iso);
+      console.log('exists -> ' + exists);
+      if (exists) {
+        fs.unlinkSync(iso);
+      }
+      kbox.engine.provider.up(function(err, data) {
+        if (data) {
+          state.log(data);
+        }
+
+        if (err) {
+          state.log(state.status.notOk);
+          done(err);
+        } else {
+          state.log(state.status.ok);
+          done();
+        }
+      });
     };
   });
 
