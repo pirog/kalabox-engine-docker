@@ -26,7 +26,7 @@ module.exports = function(kbox) {
   var logDebug = core.log.debug;
   var logInfo = core.log.info;
 
-  core.deps.call(require('./index.js'));
+  var x = require('./index.js')(kbox);
 
   var init = function(engineConfig) {
 
