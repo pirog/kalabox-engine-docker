@@ -74,7 +74,7 @@ module.exports = function(kbox) {
         state.log(data);
         state.vbIsInstalled = (err) ? false : true;
         state.log('VBoxManage installed? ' + state.vbIsInstalled);
-        done(null);
+        done();
       });
     };
   });
