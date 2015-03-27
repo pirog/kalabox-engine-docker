@@ -57,4 +57,4 @@ module.exports = {
       'v1.4.1/Boot2Docker-1.4.1.pkg'
     }
   }
-}
+};

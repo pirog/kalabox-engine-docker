@@ -106,7 +106,6 @@ module.exports = function(kbox) {
           meta.PROVIDER_DOWNLOAD_URL.linux.vb[nix.ID][nix.VERSION_ID]
         );
       }
-
     };
   });
 
@@ -147,7 +146,7 @@ module.exports = function(kbox) {
       'boot2docker-profile',
       'gather-boot2docker-dependencies'
     ];
-    step.subscribes = [];
+    step.subscribes = ['run-admin-commands'];
     step.all.darwin = function(state, done) {
       if (!state.isBoot2DockerInstalled) {
         kbox.util.disk.getMacVolume(function(err, volume) {
@@ -157,22 +156,11 @@ module.exports = function(kbox) {
           } else {
             var pkg = path.join(
               state.downloadDir,
-              path.basename(PROVIDER_URL_PACKAGE)
+              path.basename(meta.PROVIDER_DOWNLOAD_URL)
             );
             var cmd = kbox.install.cmd.buildInstallCmd(pkg, volume);
-            var cmds = [cmd];
-            var child = kbox.install.cmd.runCmdsAsync(cmds);
-            child.stdout.on('data', function(data) {
-              state.log(data);
-            });
-            child.stdout.on('end', function() {
-              state.log(state.status.ok);
-              done();
-            });
-            child.stderr.on('data', function(data) {
-              state.log(state.status.notOk);
-              done(new Error(data));
-            });
+            state.adminCommands.push(cmd);
+            done();
           }
         });
       } else {
@@ -181,7 +169,7 @@ module.exports = function(kbox) {
       }
     };
     step.all.linux = function(state, done) {
-      console.log("engine install");
+      console.log('engine install');
       done();
     };
   });
