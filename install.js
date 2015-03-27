@@ -72,9 +72,12 @@ module.exports = function(kbox) {
       shell.exec(cmd, function(err, data) {
         state.log(data);
         state.vbIsInstalled = (err) ? false : true;
-        state.log('VBoxManage installed?' + state.vbIsInstalled);
+        state.log('VBoxManage installed? ' + state.vbIsInstalled);
         done(null);
       });
+    };
+    step.all.darwin = function(state, done) {
+      done();
     };
   });
 
@@ -141,7 +144,7 @@ module.exports = function(kbox) {
   // Install Boot2docker.
   kbox.install.registerStep(function(step) {
     step.name = 'install-engine';
-    step.description  = 'Install boot2docker package.';
+    step.description  = 'Installing boot2docker packages.';
     step.deps = [
       'boot2docker-profile',
       'gather-boot2docker-dependencies'
@@ -169,7 +172,33 @@ module.exports = function(kbox) {
       }
     };
     step.all.linux = function(state, done) {
-      console.log('engine install');
+      if (!state.vbIsInstalled) {
+        var nix = kbox.install.linuxOsInfo.get();
+        var vb = meta.PROVIDER_DOWNLOAD_URL.linux.vb[nix.ID][nix.VERSION_ID];
+        var pkg = path.join(
+          state.downloadDir,
+          path.basename(vb)
+        );
+        var cmd = kbox.install.cmd.buildInstallCmd(pkg, nix);
+        state.adminCommands.push(cmd);
+      }
+
+      if (!state.isBoot2DockerInstalled) {
+        var b2dBin = path.join(
+          state.downloadDir,
+          path.basename(meta.PROVIDER_DOWNLOAD_URL.linux.b2d)
+        );
+        var b2dBinDest = path.join('/usr/local/bin', 'boot2docker');
+        // Need to do this if the user is moving a file across partitions
+        var is = fs.createReadStream(b2dBin);
+        var os = fs.createWriteStream(b2dBinDest);
+        is.pipe(os);
+        is.on('end', function() {
+          fs.unlinkSync(b2dBin);
+          fs.chmodSync(b2dBinDest, '0755');
+        });
+      }
+
       done();
     };
   });
