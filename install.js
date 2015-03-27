@@ -63,53 +63,19 @@ module.exports = function(kbox) {
     step.description = 'Download docker dependencies';
     step.deps = [
       'is-boot2docker-installed',
-      'is-boot2docker-profile-set',
-      'internet'
+      'is-boot2docker-profile-set'
     ];
-    step.all.darwin = function(state, done) {
-
-      // Init.
-      if (!state.downloadDir) {
-        state.downloadDir = kbox.util.disk.getTempDir();
-      }
-      state.dockerDependencyDownloads = [];
+    step.subscribes = ['downloads'];
+    step.all.darwin = function(state) {
 
       // Boot2docker profile.
       if (!state.isBoot2dockerProfileSet) {
-        state.dockerDependencyDownloads.push(meta.PROVIDER_URL_PROFILE);
-        state.boot2dockerProfileDownloadFilepath = path.join(
-          state.downloadDir,
-          path.basename(meta.PROVIDER_URL_PROFILE)
-        );
+        state.downloads.push(PROVIDER_URL_PROFILE);
       }
 
       // Boot2docker package.
       if (!state.isBoot2DockerInstalled) {
-        state.dockerDependencyDownloads.push(meta.PROVIDER_DOWNLOAD_URL.darwin);
-        state.boot2dockerPackageDownloadFilepath = path.join(
-          state.downloadDir,
-          path.basename(meta.PROVIDER_DOWNLOAD_URL.darwin)
-        );
-      }
-
-      // Download dependencies/
-      var urls = state.dockerDependencyDownloads;
-      urls.forEach(function(url) {
-        state.log(url);
-      });
-      if (urls.length > 0) {
-        var dir = state.downloadDir;
-        kbox.util.download.downloadFiles(urls, dir, function(err) {
-          if (err) {
-            state.log(state.status.notOk);
-            done(err);
-          } else {
-            state.log(state.status.ok);
-            done();
-          }
-        });
-      } else {
-        done();
+        state.downloads.push(meta.PROVIDER_DOWNLOAD_URL.darwin);
       }
 
     };
@@ -127,7 +93,10 @@ module.exports = function(kbox) {
     step.all.darwin = function(state, done) {
       if (!state.isBoot2dockerProfileSet) {
         mkdirp.sync(state.config.sysProviderRoot);
-        var src = state.boot2dockerProfileDownloadFilepath;
+        var src = path.join(
+          state.downloadDir,
+          path.basename(PROVIDER_URL_PROFILE)
+        );
         var dst = state.boot2dockerProfileFilepath;
         fs.rename(src, dst, function(err) {
           if (err) {
@@ -157,6 +126,7 @@ module.exports = function(kbox) {
       'boot2docker-profile',
       'download-boot2docker-dependencies'
     ];
+    step.subscribes = [];
     step.all.darwin = function(state, done) {
       if (!state.isBoot2DockerInstalled) {
         kbox.util.disk.getMacVolume(function(err, volume) {
@@ -164,7 +134,10 @@ module.exports = function(kbox) {
             state.log(state.status.notOk);
             done(err);
           } else {
-            var pkg = state.boot2dockerPackageDownloadFilepath;
+            var pkg = path.join(
+              state.downloadDir,
+              path.basename(PROVIDER_URL_PACKAGE)
+            );
             var cmd = kbox.install.cmd.buildInstallCmd(pkg, volume);
             var cmds = [cmd];
             var child = kbox.install.cmd.runCmdsAsync(cmds);
