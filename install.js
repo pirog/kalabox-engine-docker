@@ -10,6 +10,8 @@ var BOOT2DOCKER = 'Boot2Docker';
 module.exports = function(kbox) {
 
   var sysProfiler = kbox.install.sysProfiler;
+  var provider = kbox.engine.provider;
+  var shell = kbox.util.shell;
 
   // Boot2docker installed?
   kbox.install.registerStep(function(step) {
@@ -30,8 +32,15 @@ module.exports = function(kbox) {
       });
     };
     step.all.linux = function(state, done) {
-      console.log("b2d installed init");
-      done();
+      provider.isInstalled(function(err, isInstalled) {
+        if (err) {
+          done(err);
+        } else {
+          state.isBoot2DockerInstalled = isInstalled;
+          state.log(BOOT2DOCKER + ' is installed?: ' + isInstalled);
+          done();
+        }
+      });
     };
   });
 
@@ -40,7 +49,7 @@ module.exports = function(kbox) {
     step.name = 'is-boot2docker-profile-set';
     step.description = 'Check if boot2docker profile is set.';
     step.deps = [];
-    step.all.darwin = function(state, done) {
+    step.all = function(state, done) {
       state.boot2dockerProfileFilepath = path.join(
         state.config.sysProviderRoot,
         'profile'
@@ -51,37 +60,53 @@ module.exports = function(kbox) {
         done();
       });
     };
+  });
+
+    // Boot2docker profile set?
+  kbox.install.registerStep(function(step) {
+    step.name = 'is-virtualbox-installed';
+    step.description = 'Check if Virtualbox is installed.';
+    step.deps = [];
     step.all.linux = function(state, done) {
-      console.log("b2d check init");
-      done();
+      var cmd = 'which VBoxManage';
+      shell.exec(cmd, function(err, data) {
+        state.log(data);
+        state.vbIsInstalled = (err) ? false : true;
+        state.log('VBoxManage installed?' + state.vbIsInstalled);
+        done(null);
+      });
     };
   });
 
   // Download docker dependencies
   kbox.install.registerStep(function(step) {
-    step.name = 'download-boot2docker-dependencies';
-    step.description = 'Download docker dependencies';
+    step.name = 'gather-boot2docker-dependencies';
+    step.description = 'Gathering docker dependencies';
     step.deps = [
       'is-boot2docker-installed',
-      'is-boot2docker-profile-set'
+      'is-boot2docker-profile-set',
+      'is-virtualbox-installed'
     ];
     step.subscribes = ['downloads'];
-    step.all.darwin = function(state) {
+    step.all = function(state) {
 
       // Boot2docker profile.
       if (!state.isBoot2dockerProfileSet) {
-        state.downloads.push(PROVIDER_URL_PROFILE);
+        state.downloads.push(meta.PROVIDER_PROFILE_URL);
       }
 
       // Boot2docker package.
       if (!state.isBoot2DockerInstalled) {
-        state.downloads.push(meta.PROVIDER_DOWNLOAD_URL.darwin);
+        state.downloads.push(meta.PROVIDER_DOWNLOAD_URL[process.platform]['b2d']);
       }
 
-    };
-    step.all.linux = function(state, done) {
-      console.log("donwload init");
-      done();
+      if (process.platform === 'linux' && !state.vbIsInstalled) {
+        var nix = kbox.install.linuxOsInfo.get();
+        state.downloads.push(
+          meta.PROVIDER_DOWNLOAD_URL.linux.vb[nix.ID][nix.VERSION_ID]
+        );
+      }
+
     };
   });
 
@@ -89,13 +114,13 @@ module.exports = function(kbox) {
   kbox.install.registerStep(function(step) {
     step.name = 'boot2docker-profile';
     step.description = 'Setup the boot2docker profile.';
-    step.deps = ['download-boot2docker-dependencies'];
-    step.all.darwin = function(state, done) {
+    step.deps = ['gather-boot2docker-dependencies'];
+    step.all = function(state, done) {
       if (!state.isBoot2dockerProfileSet) {
         mkdirp.sync(state.config.sysProviderRoot);
         var src = path.join(
           state.downloadDir,
-          path.basename(PROVIDER_URL_PROFILE)
+          path.basename(meta.PROVIDER_PROFILE_URL)
         );
         var dst = state.boot2dockerProfileFilepath;
         fs.rename(src, dst, function(err) {
@@ -112,10 +137,6 @@ module.exports = function(kbox) {
         done();
       }
     };
-    step.all.linux = function(state, done) {
-      console.log("b2d profile");
-      done();
-    };
   });
 
   // Install Boot2docker.
@@ -124,7 +145,7 @@ module.exports = function(kbox) {
     step.description  = 'Install boot2docker package.';
     step.deps = [
       'boot2docker-profile',
-      'download-boot2docker-dependencies'
+      'gather-boot2docker-dependencies'
     ];
     step.subscribes = [];
     step.all.darwin = function(state, done) {
@@ -170,7 +191,7 @@ module.exports = function(kbox) {
     step.name = 'init-engine';
     step.description = 'Init and start boot2docker';
     step.deps = ['install-engine'];
-    step.all.darwin = function(state, done) {
+    step.all = function(state, done) {
       var iso = path.join(state.config.sysProviderRoot, 'boot2docker.iso');
       console.log('iso -> ' + iso);
       var exists = fs.existsSync(iso);
@@ -191,10 +212,6 @@ module.exports = function(kbox) {
           done();
         }
       });
-    };
-    step.all.linux = function(state, done) {
-      console.log("engine init");
-      done();
     };
   });
 

@@ -48,9 +48,13 @@ module.exports = {
       b2d: 'https://github.com/boot2docker/boot2docker-cli/releases/download/' +
         'v1.4.1/boot2docker-v1.4.1-linux-amd64'
     },
-    win32: 'https://github.com/boot2docker/windows-installer/releases/' +
-      'download/v1.4.1/docker-install.exe',
-    darwin: 'https://github.com/boot2docker/osx-installer/releases/download/' +
+    win32: {
+      b2d: 'https://github.com/boot2docker/windows-installer/releases/' +
+      'download/v1.4.1/docker-install.exe'
+    },
+    darwin: {
+      b2d: 'https://github.com/boot2docker/osx-installer/releases/download/' +
       'v1.4.1/Boot2Docker-1.4.1.pkg'
+    }
   }
 }
