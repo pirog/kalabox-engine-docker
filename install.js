@@ -67,6 +67,7 @@ module.exports = function(kbox) {
     step.name = 'is-virtualbox-installed';
     step.description = 'Check if Virtualbox is installed.';
     step.deps = [];
+    step.subscribes = ['gather-boot2docker-dependencies'];
     step.all.linux = function(state, done) {
       var cmd = 'which VBoxManage';
       shell.exec(cmd, function(err, data) {
@@ -76,9 +77,6 @@ module.exports = function(kbox) {
         done(null);
       });
     };
-    step.all.darwin = function(state, done) {
-      done();
-    };
   });
 
   // Download docker dependencies
@@ -87,8 +85,7 @@ module.exports = function(kbox) {
     step.description = 'Gathering docker dependencies';
     step.deps = [
       'is-boot2docker-installed',
-      'is-boot2docker-profile-set',
-      'is-virtualbox-installed'
+      'is-boot2docker-profile-set'
     ];
     step.subscribes = ['downloads'];
     step.all = function(state) {
@@ -100,7 +97,7 @@ module.exports = function(kbox) {
 
       // Boot2docker package.
       if (!state.isBoot2DockerInstalled) {
-        state.downloads.push(meta.PROVIDER_DOWNLOAD_URL[process.platform]['b2d']);
+        state.downloads.push(meta.PROVIDER_DOWNLOAD_URL[process.platform].b2d);
       }
 
       if (process.platform === 'linux' && !state.vbIsInstalled) {
@@ -159,7 +156,7 @@ module.exports = function(kbox) {
           } else {
             var pkg = path.join(
               state.downloadDir,
-              path.basename(meta.PROVIDER_DOWNLOAD_URL)
+              path.basename(meta.PROVIDER_DOWNLOAD_URL.darwin.b2d)
             );
             var cmd = kbox.install.cmd.buildInstallCmd(pkg, volume);
             state.adminCommands.push(cmd);
