@@ -264,4 +264,26 @@ module.exports = function(kbox) {
     };
   });
 
+    // Init and start Boot2docker.
+  kbox.install.registerStep(function(step) {
+    step.name = 'finalize-engine';
+    step.description = 'Init and start boot2docker';
+    step.deps = ['finalize-services'];
+    step.all.win32 = function(state, done) {
+      var winB2d =
+        '"C:\\Program Files\\Boot2Docker for Windows\\boot2docker.exe"';
+      var turnUpForWhat = [winB2d + ' --vm="Kalabox2" down'];
+      var child = kbox.install.cmd.runCmdsAsync(turnUpForWhat);
+      child.stdout.on('data', function(data) {
+        state.log(data);
+      });
+      child.on('exit', function(code) {
+        state.log('Install completed with code ' + code);
+        done();
+      });
+    };
+    step.all.darwin = function(state, done) { done(); };
+    step.all.linux = function(state, done) { done(); };
+  });
+
 };
