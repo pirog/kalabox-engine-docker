@@ -116,7 +116,7 @@ module.exports = function(kbox) {
       'boot2docker-profile',
       'download-boot2docker-dependencies'
     ];
-    step.subscribes = [];
+    step.subscribes = ['run-admin-commands'];
     step.all.darwin = function(state, done) {
       if (!state.isBoot2DockerInstalled) {
         kbox.util.disk.getMacVolume(function(err, volume) {
@@ -129,19 +129,8 @@ module.exports = function(kbox) {
               path.basename(PROVIDER_URL_PACKAGE)
             );
             var cmd = kbox.install.cmd.buildInstallCmd(pkg, volume);
-            var cmds = [cmd];
-            var child = kbox.install.cmd.runCmdsAsync(cmds);
-            child.stdout.on('data', function(data) {
-              state.log(data);
-            });
-            child.stdout.on('end', function() {
-              state.log(state.status.ok);
-              done();
-            });
-            child.stderr.on('data', function(data) {
-              state.log(state.status.notOk);
-              done(new Error(data));
-            });
+            state.adminCommands.push(cmd);
+            done();
           }
         });
       } else {
