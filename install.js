@@ -226,7 +226,8 @@ module.exports = function(kbox) {
           path.basename(meta.PROVIDER_DOWNLOAD_URL.win32.b2d)
         );
         var cmd = kbox.install.cmd.buildInstallCmd(
-          pkg, path.join(tempDir, path.basename(PROVIDER_URL_INF))
+          pkg,
+          path.join(state.downloadDir, path.basename(meta.PROVIDER_INF_URL))
         );
         state.adminCommands.push(cmd);
       }
