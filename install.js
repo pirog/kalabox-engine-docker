@@ -42,6 +42,15 @@ module.exports = function(kbox) {
         }
       });
     };
+    step.all.win32 = function(state, done) {
+      var providerIsInstalled = fs.existsSync(
+        'C:\\Program Files\\Boot2Docker for Windows\\boot2docker.exe'
+      );
+      state.isBoot2DockerInstalled = providerIsInstalled;
+      var msg = providerIsInstalled ? 'is' : 'is NOT';
+      state.log('Boot2Docker ' + msg + ' installed.');
+      done();
+    };
   });
 
   // Boot2docker profile set?
@@ -62,7 +71,7 @@ module.exports = function(kbox) {
     };
   });
 
-    // Boot2docker profile set?
+  // Boot2docker profile set?
   kbox.install.registerStep(function(step) {
     step.name = 'is-virtualbox-installed';
     step.description = 'Check if Virtualbox is installed.';
@@ -76,6 +85,19 @@ module.exports = function(kbox) {
         state.log('VBoxManage installed? ' + state.vbIsInstalled);
         done();
       });
+    };
+  });
+
+  // Boot2docker inf set?
+  kbox.install.registerStep(function(step) {
+    step.name = 'is-b2d-inf';
+    step.description = 'Check if b2d inf is present.';
+    step.deps = [];
+    step.subscribes = ['gather-boot2docker-dependencies'];
+    step.all.win32 = function(state, done) {
+      // @todo: check for this
+      state.downloads.push(meta.PROVIDER_INF_URL);
+      done();
     };
   });
 
@@ -195,7 +217,19 @@ module.exports = function(kbox) {
           fs.chmodSync(b2dBinDest, '0755');
         });
       }
-
+      done();
+    };
+    step.all.win32 = function(state, done) {
+      if (!state.isBoot2DockerInstalled) {
+        var pkg = path.join(
+          state.downloadDir,
+          path.basename(meta.PROVIDER_DOWNLOAD_URL.win32.b2d)
+        );
+        var cmd = kbox.install.cmd.buildInstallCmd(
+          pkg, path.join(tempDir, path.basename(PROVIDER_URL_INF))
+        );
+        state.adminCommands.push(cmd);
+      }
       done();
     };
   });
