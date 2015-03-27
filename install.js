@@ -3,17 +3,9 @@
 var fs = require('fs');
 var path = require('path');
 var mkdirp = require('mkdirp');
+var meta = require('./meta.js');
 
 var BOOT2DOCKER = 'Boot2Docker';
-
-var PROVIDER_URL_V1_4_1 =
-  'https://github.com/boot2docker/osx-installer/releases/download/v1.4.1/' +
-  'Boot2Docker-1.4.1.pkg';
-var PROVIDER_URL_PACKAGE = PROVIDER_URL_V1_4_1;
-
-var PROVIDER_URL_PROFILE =
-  'https://raw.githubusercontent.com/' +
-  'kalabox/kalabox-boot2docker/master/profile';
 
 module.exports = function(kbox) {
 
@@ -24,6 +16,8 @@ module.exports = function(kbox) {
     step.name = 'is-boot2docker-installed';
     step.description = 'Check if boot2docker is installed.';
     step.deps = [];
+    // @todo: switch this to provider.isInstalled and remove
+    // sysprofile stuff
     step.all.darwin = function(state, done) {
       sysProfiler.isAppInstalled(BOOT2DOCKER, function(err, isInstalled) {
         if (err) {
@@ -34,6 +28,10 @@ module.exports = function(kbox) {
           done();
         }
       });
+    };
+    step.all.linux = function(state, done) {
+      console.log("b2d installed init");
+      done();
     };
   });
 
@@ -52,6 +50,10 @@ module.exports = function(kbox) {
         state.log('Boot2docker profile set?: ' + exists);
         done();
       });
+    };
+    step.all.linux = function(state, done) {
+      console.log("b2d check init");
+      done();
     };
   });
 
@@ -73,9 +75,13 @@ module.exports = function(kbox) {
 
       // Boot2docker package.
       if (!state.isBoot2DockerInstalled) {
-        state.downloads.push(PROVIDER_URL_PACKAGE);
+        state.downloads.push(meta.PROVIDER_DOWNLOAD_URL.darwin);
       }
 
+    };
+    step.all.linux = function(state, done) {
+      console.log("donwload init");
+      done();
     };
   });
 
@@ -105,6 +111,10 @@ module.exports = function(kbox) {
         state.log(state.status.ok);
         done();
       }
+    };
+    step.all.linux = function(state, done) {
+      console.log("b2d profile");
+      done();
     };
   });
 
@@ -138,6 +148,10 @@ module.exports = function(kbox) {
         done();
       }
     };
+    step.all.linux = function(state, done) {
+      console.log("engine install");
+      done();
+    };
   });
 
   // Init and start Boot2docker.
@@ -166,6 +180,10 @@ module.exports = function(kbox) {
           done();
         }
       });
+    };
+    step.all.linux = function(state, done) {
+      console.log("engine init");
+      done();
     };
   });
 
