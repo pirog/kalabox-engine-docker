@@ -30,7 +30,7 @@ module.exports = function(kbox) {
       });
     };
     step.all.linux = function(state, done) {
-      console.log("b2d installed init");
+      console.log('b2d installed init');
       done();
     };
   });
@@ -52,7 +52,7 @@ module.exports = function(kbox) {
       });
     };
     step.all.linux = function(state, done) {
-      console.log("b2d check init");
+      console.log('b2d check init');
       done();
     };
   });
@@ -70,7 +70,7 @@ module.exports = function(kbox) {
 
       // Boot2docker profile.
       if (!state.isBoot2dockerProfileSet) {
-        state.downloads.push(PROVIDER_URL_PROFILE);
+        state.downloads.push(meta.PROVIDER_PROFILE_URL);
       }
 
       // Boot2docker package.
@@ -80,7 +80,7 @@ module.exports = function(kbox) {
 
     };
     step.all.linux = function(state, done) {
-      console.log("donwload init");
+      console.log('donwload init');
       done();
     };
   });
@@ -95,7 +95,7 @@ module.exports = function(kbox) {
         mkdirp.sync(state.config.sysProviderRoot);
         var src = path.join(
           state.downloadDir,
-          path.basename(PROVIDER_URL_PROFILE)
+          path.basename(meta.PROVIDER_PROFILE_URL)
         );
         var dst = state.boot2dockerProfileFilepath;
         fs.rename(src, dst, function(err) {
@@ -113,7 +113,7 @@ module.exports = function(kbox) {
       }
     };
     step.all.linux = function(state, done) {
-      console.log("b2d profile");
+      console.log('b2d profile');
       done();
     };
   });
@@ -136,7 +136,7 @@ module.exports = function(kbox) {
           } else {
             var pkg = path.join(
               state.downloadDir,
-              path.basename(PROVIDER_URL_PACKAGE)
+              path.basename(meta.PROVIDER_DOWNLOAD_URL)
             );
             var cmd = kbox.install.cmd.buildInstallCmd(pkg, volume);
             state.adminCommands.push(cmd);
@@ -149,7 +149,7 @@ module.exports = function(kbox) {
       }
     };
     step.all.linux = function(state, done) {
-      console.log("engine install");
+      console.log('engine install');
       done();
     };
   });
@@ -182,7 +182,7 @@ module.exports = function(kbox) {
       });
     };
     step.all.linux = function(state, done) {
-      console.log("engine init");
+      console.log('engine init');
       done();
     };
   });
