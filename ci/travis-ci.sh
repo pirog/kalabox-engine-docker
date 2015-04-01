@@ -64,37 +64,40 @@ after-success() {
     [ $TRAVIS_PULL_REQUEST == "false" ] &&
     [ $TRAVIS_REPO_SLUG == $PLUGIN_REPO ]; then
 
-    # DO VERSION BUMPING FOR KALABOX/KALABOX
-    COMMIT_MESSAGE=$(git log --format=%B -n 1)
-    BUILD_VERSION=$(node -pe 'JSON.parse(process.argv[1]).version' "$(cat $TRAVIS_BUILD_DIR/package.json)")
-    # BUMP patch but only on master and not a tag
-    if [ -z "$TRAVIS_TAG" ] && [ $TRAVIS_BRANCH == "master" ] && [ "${COMMIT_MESSAGE}" != "Release v${BUILD_VERSION}" ] ; then
-      grunt bump-patch
+    # Only do our stuff on the latest node version
+    if [ $TRAVIS_NODE_VERSION == "0.12" ] ; then
+      # DO VERSION BUMPING FOR KALABOX/KALABOX
+      COMMIT_MESSAGE=$(git log --format=%B -n 1)
+      BUILD_VERSION=$(node -pe 'JSON.parse(process.argv[1]).version' "$(cat $TRAVIS_BUILD_DIR/package.json)")
+      # BUMP patch but only on master and not a tag
+      if [ -z "$TRAVIS_TAG" ] && [ $TRAVIS_BRANCH == "master" ] && [ "${COMMIT_MESSAGE}" != "Release v${BUILD_VERSION}" ] ; then
+        grunt bump-patch
+      fi
+      # Get updated build version
+      BUILD_VERSION=$(node -pe 'JSON.parse(process.argv[1]).version' "$(cat $TRAVIS_BUILD_DIR/package.json)")
+      chmod 600 $HOME/.ssh/travis.id_rsa
+
+      # SET UP SSH THINGS
+      eval "$(ssh-agent)"
+      ssh-add $HOME/.ssh/travis.id_rsa
+      git config --global user.name "Kala C. Bot"
+      git config --global user.email "kalacommitbot@kalamuna.com"
+
+      # RESET UPSTREAM SO WE CAN PUSH VERSION CHANGES TO IT
+      # We need to re-add this in because our clone was originally read-only
+      git remote rm origin
+      git remote add origin git@github.com:$TRAVIS_REPO_SLUG.git
+      git checkout $TRAVIS_BRANCH
+      git add -A
+      if [ -z "$TRAVIS_TAG" ]; then
+        git commit -m "KALABOT TWERKING VERSION ${BUILD_VERSION} [ci skip]" --author="Kala C. Bot <kalacommitbot@kalamuna.com>" --no-verify
+      fi
+      git push origin $TRAVIS_BRANCH
+
+      # DEPLOY OUR BUILD TO NPM
+      $HOME/npm-config.sh > /dev/null
+      npm publish ./
     fi
-    # Get updated build version
-    BUILD_VERSION=$(node -pe 'JSON.parse(process.argv[1]).version' "$(cat $TRAVIS_BUILD_DIR/package.json)")
-    chmod 600 $HOME/.ssh/travis.id_rsa
-
-    # SET UP SSH THINGS
-    eval "$(ssh-agent)"
-    ssh-add $HOME/.ssh/travis.id_rsa
-    git config --global user.name "Kala C. Bot"
-    git config --global user.email "kalacommitbot@kalamuna.com"
-
-    # RESET UPSTREAM SO WE CAN PUSH VERSION CHANGES TO IT
-    # We need to re-add this in because our clone was originally read-only
-    git remote rm origin
-    git remote add origin git@github.com:$TRAVIS_REPO_SLUG.git
-    git checkout $TRAVIS_BRANCH
-    git add -A
-    if [ -z "$TRAVIS_TAG" ]; then
-      git commit -m "KALABOT TWERKING VERSION ${BUILD_VERSION} [ci skip]" --author="Kala C. Bot <kalacommitbot@kalamuna.com>" --no-verify
-    fi
-    git push origin $TRAVIS_BRANCH
-
-    # DEPLOY OUR BUILD TO NPM
-    $HOME/npm-config.sh > /dev/null
-    npm publish ./
   else
     exit $EXIT_VALUE
   fi
