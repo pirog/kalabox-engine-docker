@@ -154,15 +154,17 @@ module.exports = function(kbox) {
     });
   };
 
-  var down = function(callback) {
+  var down = function(callbackIn) {
     logInfo('B2D => Shutting down.');
-    recursiveTry('down', 3, function(err, output) {
+    var callback = function(err, output) {
       if (err) {
         logInfo('B2D => Error while shutting down.', err);
       } else {
         logInfo('B2D => Shut down.');
       }
-    });
+      callbackIn(err, output);
+    };
+    recursiveTry('down', 3, callback);
   };
 
   var getStatus = function(callback) {
