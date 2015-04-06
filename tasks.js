@@ -9,44 +9,60 @@ module.exports = function(kbox) {
 
   var engine = kbox.engine;
   var events = kbox.core.events;
-  var tasks = kbox.core.tasks;
   var services = kbox.services;
 
   if (engine.provider.hasTasks) {
     // Tasks
     // Start the kalabox engine
-    tasks.registerTask('up', function(done) {
-      engine.up(PROVIDER_UP_ATTEMPTS, done);
+    kbox.tasks.add(function(task) {
+      task.path = ['up'];
+      task.description = 'Bring kbox container engine up.';
+      task.func = function(done) {
+        engine.up(PROVIDER_UP_ATTEMPTS, done);
+      };
     });
 
     // Stop the kalabox engine
-    tasks.registerTask('down', function(done) {
-      engine.down(PROVIDER_DOWN_ATTEMPTS, done);
+    kbox.tasks.add(function(task) {
+      task.path = ['down'];
+      task.description = 'Bring kbox container engine down.';
+      task.func = function(done) {
+        engine.down(PROVIDER_DOWN_ATTEMPTS, done);
+      };
     });
 
     // Display status of provider.
-    tasks.registerTask('status', function(done) {
-      engine.provider.isUp(function(err, isUp) {
-        if (err) {
-          done(err);
-        } else if (isUp) {
-          console.log('up');
-        } else {
-          console.log('down');
-        }
-        done();
-      });
+    kbox.tasks.add(function(task) {
+      task.path = ['status'];
+      task.description = 'Display status of kbox container engine.';
+      task.func = function(done) {
+        engine.provider.isUp(function(err, isUp) {
+          if (err) {
+            return done(err);
+          } else if (isUp) {
+            console.log('up');
+          } else {
+            console.log('down');
+          }
+          done();
+        });
+      };
     });
 
-    tasks.registerTask('ip', function(done) {
-      engine.provider.getIp(function(err, ip) {
-        if (err) {
-          done(err);
-        } else {
-          console.log(ip);
-          done();
-        }
-      });
+    // Display ip.
+    kbox.tasks.add(function(task) {
+      task.path = ['ip'];
+      task.description = 'Display kbox container engine\'s ip address.';
+      task.func = function(done) {
+        engine.provider.getIp(function(err, ip) {
+          if (err) {
+            done(err);
+          } else {
+            console.log(ip);
+            done();
+          }
+        });
+      };
     });
 
     // Events
