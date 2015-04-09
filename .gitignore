@@ -20,3 +20,4 @@ cids
 built
 *.tar
 *.id_rsa
+string
