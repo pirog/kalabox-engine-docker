@@ -7,7 +7,7 @@
     "drupal",
     "wordpress"
   ],
-  "version": "0.6.5",
+  "version": "0.6.6",
   "main": "docker.js",
   "repository": {
     "type": "git",
