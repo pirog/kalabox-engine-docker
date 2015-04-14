@@ -21,7 +21,7 @@ module.exports = function(kbox) {
   if (process.platform === 'win32') {
     B2D_EXECUTABLE =
       '"C:\\Program Files\\Boot2Docker for Windows\\boot2docker.exe"' +
-      ' --hostip="10.13.37.1" --vm="Kalabox2"';
+      ' --hostip="10.13.37.1"';
   }
 
   var logInfo = core.log.info;
