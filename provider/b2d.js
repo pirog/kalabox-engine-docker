@@ -120,7 +120,7 @@ module.exports = function(kbox) {
     });
   };
 
-  var up = function(callbackIn) {
+  var up = function(options, callbackIn) {
     var callback = function(err, output) {
       if (err) {
         logInfo('B2D => Error while starting up.', err);
@@ -130,7 +130,12 @@ module.exports = function(kbox) {
       callbackIn(err, output);
     };
     logInfo('B2D => Starting up...');
-    recursiveTry('init', 3, function(err, output) {
+    var cmds = [];
+    if (options.disksize) {
+      cmds.push('--disksize=' + options.disksize);
+    }
+    cmds.push('init');
+    recursiveTry(cmds.join(' '), 3, function(err, output) {
       if (err) {
         callback(err, output);
       } else {
@@ -163,7 +168,7 @@ module.exports = function(kbox) {
       } else {
         logInfo('B2D => Shut down.');
       }
-      callbackIn(err, output);
+      callbackIn(null, output);
     };
     recursiveTry('down', 3, callback);
   };
