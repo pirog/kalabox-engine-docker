@@ -721,7 +721,7 @@ module.exports = function(kbox) {
     }
   };
 
-  var build = function(image, callback) {
+  var buildInternal = function(image, callback) {
     logInfo('DOCKER => Building image.', image);
     var workingDir = path.dirname(image.src);
     var filename = 'archive.tar';
@@ -786,6 +786,218 @@ module.exports = function(kbox) {
         });
       }
     });
+  };
+
+  /*
+   * Pretty print object.
+   */
+  var pp = function(obj) {
+
+    return JSON.stringify(obj);
+
+  };
+
+  /*
+   * Parse a docker image name, example -> <repo>/<name>:<tag>.
+   */
+  var parseImageName = function(imageName) {
+
+    // Split by repo sep.
+    var parts = imageName.split('/');
+
+    // Init.
+    var o = {
+      repo: undefined,
+      name: undefined,
+      tag: undefined
+    };
+
+    if (parts.length === 1) {
+
+      // Just name, no repo.
+      o.name = parts[0];
+
+    } else if (parts.length === 2) {
+
+      // Name and repo.
+      o.repo = parts[0];
+      o.name = parts[1];
+
+    } else {
+
+      // Throw error.
+      throw new Error('Invalid image name: ' + imageName);
+
+    }
+
+    // Split by tag sep.
+    parts = o.name.split(':');
+
+    if (parts.length === 2) {
+
+      // Name and tag.
+      o.name = parts[0];
+      o.tag = parts[1];
+
+    } else if (parts.length > 2) {
+
+      // Throw error.
+      throw new Error('Invalid image name: ' + imageName);
+
+    }
+
+    // @todo: remove.
+    console.log(o, null, '  ');
+
+    return o;
+
+  };
+
+  /*
+   * Take a parsed image name and convert it to a string.
+   */
+  var parsedImageNameToString = function(parsed) {
+
+    // Validate.
+    if (typeof parsed.repo !== 'string') {
+      throw new TypeError('Invalid image repo: ' + pp(parsed));
+    }
+    if (typeof parsed.name !== 'string') {
+      throw new TypeError('Invalid image name: ' + pp(parsed));
+    }
+    if (parsed.tag && typeof parsed.tag !== 'string') {
+      throw new TypeError('Invalid image tag: ' + pp(parsed));
+    }
+
+    // Put name back together.
+    var name = [parsed.repo, parsed.name].join('/');
+
+    if (parsed.tag) {
+
+      // Add version.
+      return [name, parsed.tag].join(':');
+
+    } else {
+
+      return name;
+
+    }
+
+  };
+
+  /*
+   * Decorate raw image object.
+   */
+  var decorateRawImage = function(rawImage) {
+
+    // Validate
+    if (typeof rawImage !== 'object') {
+      throw new TypeError('Invalid docker image object: ' + pp(rawImage));
+    }
+    if (typeof rawImage.name !== 'string' || rawImage.name.length === 0) {
+      throw new TypeError('Invalid image name: ' + pp(rawImage));
+    }
+
+    // @todo: validate the rawImage's keys.
+
+    // Load global dependencies.
+    return kbox.core.deps.call(function(globalConfig) {
+
+      // Parse image name.
+      var parsed = parseImageName(rawImage.name);
+
+      // Set and validate the engine repo.
+      var engineRepo = globalConfig.engineRepo;
+      if (typeof engineRepo !== 'string') {
+
+        // Throw error.
+        throw new Error('Invalid config.engineRepo: ' +
+          globalConfig.engineRepo);
+
+      }
+
+      // Get and validate version.
+      var version = globalConfig.version;
+      // Force version's patch to zero.
+      var versionParts = version.split('.');
+      if (versionParts.length !== 3) {
+        throw new Error('Invalid config.version: ' + version);
+      }
+      version = [versionParts[0], versionParts[1], '0'].join('.');
+
+      // Get build local dependency.
+      var buildLocal = kbox.core.deps.contains('buildLocal') ?
+        kbox.core.deps.lookup('buildLocal') : false;
+
+      if (!parsed.repo) {
+
+        // Get repo name from global config.
+        parsed.repo = engineRepo;
+
+      }
+
+      if (parsed.repo === engineRepo && !parsed.tag) {
+
+        // Set the tag to the version.
+        parsed.tag = version;
+
+      }
+
+      // Build image to be returned.
+      var image = {
+        name: parsedImageNameToString(parsed),
+        build: buildLocal
+      };
+
+      if (buildLocal) {
+
+        // Build Dockerfile path.
+        image.src = path.join(rawImage.srcRoot, 'dockerfiles',
+          parsed.name, 'Dockerfile');
+
+        if (!fs.existsSync(image.src)) {
+
+          // Throw error is dockerfile doesn't exist.
+          throw new Error('Could not find image file: ' + image.src);
+
+        }
+
+      }
+
+      return image;
+
+    });
+
+  };
+
+  /*
+   * Decorate image object, and decide to build or pull.
+   */
+  var build = function(rawImage, callback) {
+
+    // Validate
+    if (typeof callback !== 'function') {
+      throw new TypeError('Invalid callback function: ' + pp(callback));
+    }
+    if (typeof rawImage !== 'object') {
+      callback(new TypeError('Invalid docker image object: ' + pp(rawImage)));
+    }
+
+    // Decorate and validate the raw image.
+    var image = decorateRawImage(rawImage);
+
+    if (image.build) {
+
+      // Build image locally rather than the docker registry.
+      buildInternal(image, callback);
+
+    } else {
+
+      // Pull image from docker registry.
+      pull(image, callback);
+
+    }
+
   };
 
   return {
