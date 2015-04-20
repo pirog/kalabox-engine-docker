@@ -898,7 +898,13 @@ module.exports = function(kbox) {
       throw new TypeError('Invalid image name: ' + pp(rawImage));
     }
 
-    // @todo: validate the rawImage's keys.
+    // Validate raw image's keys.
+    var validKeys = ['name', 'srcRoot'];
+    _.each(_.keys(rawImage), function(key) {
+      if (!_.contains(validKeys, key)) {
+        throw new TypeError('Invalid image: ' + pp(rawImage));
+      }
+    });
 
     // Load global dependencies.
     return kbox.core.deps.call(function(globalConfig) {
@@ -950,6 +956,16 @@ module.exports = function(kbox) {
       };
 
       if (buildLocal) {
+
+        // Default src root.
+        if (!rawImage.srcRoot) {
+          rawImage.srcRoot = globalConfig.srcRoot     
+        }
+
+        // Validate src root.
+        if (typeof rawImage.srcRoot !== 'string') {
+          throw new TypeError('Invalid image.srcRoot: ' + pp(rawImage));
+        }
 
         // Build Dockerfile path.
         image.src = path.join(rawImage.srcRoot, 'dockerfiles',
