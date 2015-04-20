@@ -959,7 +959,7 @@ module.exports = function(kbox) {
 
         // Default src root.
         if (!rawImage.srcRoot) {
-          rawImage.srcRoot = globalConfig.srcRoot     
+          rawImage.srcRoot = globalConfig.srcRoot;
         }
 
         // Validate src root.
