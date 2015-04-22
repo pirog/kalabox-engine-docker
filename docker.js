@@ -155,10 +155,6 @@ module.exports = function(kbox) {
       }
       version = [versionParts[0], versionParts[1], '0'].join('.');
 
-      // Get build local dependency.
-      var buildLocal = kbox.core.deps.contains('buildLocal') ?
-        kbox.core.deps.lookup('buildLocal') : false;
-
       if (!parsed.repo) {
 
         // Get repo name from global config.
@@ -952,7 +948,6 @@ module.exports = function(kbox) {
     });
   };
 
-
   /*
    * Decorate raw image object.
    */
@@ -986,6 +981,10 @@ module.exports = function(kbox) {
       }
     });
 
+    // Get build local dependency.
+    var buildLocal = kbox.core.deps.contains('buildLocal') ?
+      kbox.core.deps.lookup('buildLocal') : false;
+
     var shouldBuild = rawImage.build || buildLocal;
 
     // Build image to be returned.
@@ -1001,7 +1000,7 @@ module.exports = function(kbox) {
 
       // Default src root.
       if (!rawImage.src && !rawImage.srcRoot) {
-        rawImage.srcRoot = globalConfig.srcRoot;
+        rawImage.srcRoot = kbox.core.deps.lookup('globalConfig').srcRoot;
       }
 
       // Validate src root.
@@ -1018,7 +1017,8 @@ module.exports = function(kbox) {
         image.src = rawImage.src;
 
       } else {
-        
+
+        var parsed = parseImageName(rawImage.name);
         image.src = path.join(rawImage.srcRoot, 'dockerfiles',
           parsed.name, 'Dockerfile');
 
