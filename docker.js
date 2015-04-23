@@ -153,7 +153,7 @@ module.exports = function(kbox) {
       if (versionParts.length !== 3) {
         throw new Error('Invalid config.version: ' + version);
       }
-      version = [versionParts[0], versionParts[1], '0'].join('.');
+      version = 'v' + [versionParts[0], versionParts[1], '0'].join('.');
 
       if (!parsed.repo) {
 
