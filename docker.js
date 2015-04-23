@@ -376,6 +376,10 @@ module.exports = function(kbox) {
   };
 
   var create = function(createOptions, callback) {
+
+    // Decorate the Image property of createOptions.
+    createOptions.Image = decorateImageName(createOptions.Image);
+
     logInfo('DOCKER => Creating container.');
     var containerName = createOptions.name;
     containerExists(containerName, function(err, exists) {
