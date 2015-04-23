@@ -86,9 +86,6 @@ module.exports = function(kbox) {
 
     }
 
-    // @todo: remove.
-    console.log(o, null, '  ');
-
     return o;
 
   };
@@ -379,6 +376,10 @@ module.exports = function(kbox) {
   };
 
   var create = function(createOptions, callback) {
+
+    // Decorate the Image property of createOptions.
+    createOptions.Image = decorateImageName(createOptions.Image);
+
     logInfo('DOCKER => Creating container.');
     var containerName = createOptions.name;
     containerExists(containerName, function(err, exists) {
@@ -880,8 +881,6 @@ module.exports = function(kbox) {
 
   var buildInternal = function(image, callback) {
 
-    console.log('image -> ' + JSON.stringify(image, null, '  '));
-
     logInfo('DOCKER => Building image.', image);
     var workingDir = path.dirname(image.src);
     var filename = 'archive.tar';
@@ -1032,8 +1031,6 @@ module.exports = function(kbox) {
       }
 
     }
-
-    console.log(JSON.stringify(image, null, '  '));
 
     return image;
 
