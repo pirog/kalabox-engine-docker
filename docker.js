@@ -28,6 +28,151 @@ module.exports = function(kbox) {
 
   var x = require('./index.js')(kbox);
 
+  /*
+   * Pretty print object.
+   */
+  var pp = function(obj) {
+
+    return JSON.stringify(obj);
+
+  };
+
+  /*
+   * Parse a docker image name, example -> <repo>/<name>:<tag>.
+   */
+  var parseImageName = function(imageName) {
+
+    // Split by repo sep.
+    var parts = imageName.split('/');
+
+    // Init.
+    var o = {
+      repo: undefined,
+      name: undefined,
+      tag: undefined
+    };
+
+    if (parts.length === 1) {
+
+      // Just name, no repo.
+      o.name = parts[0];
+
+    } else if (parts.length === 2) {
+
+      // Name and repo.
+      o.repo = parts[0];
+      o.name = parts[1];
+
+    } else {
+
+      // Throw error.
+      throw new Error('Invalid image name: ' + imageName);
+
+    }
+
+    // Split by tag sep.
+    parts = o.name.split(':');
+
+    if (parts.length === 2) {
+
+      // Name and tag.
+      o.name = parts[0];
+      o.tag = parts[1];
+
+    } else if (parts.length > 2) {
+
+      // Throw error.
+      throw new Error('Invalid image name: ' + imageName);
+
+    }
+
+    return o;
+
+  };
+
+  /*
+   * Take a parsed image name and convert it to a string.
+   */
+  var parsedImageNameToString = function(parsed) {
+
+    // Validate.
+    if (typeof parsed.repo !== 'string') {
+      throw new TypeError('Invalid image repo: ' + pp(parsed));
+    }
+    if (typeof parsed.name !== 'string') {
+      throw new TypeError('Invalid image name: ' + pp(parsed));
+    }
+    if (parsed.tag && typeof parsed.tag !== 'string') {
+      throw new TypeError('Invalid image tag: ' + pp(parsed));
+    }
+
+    // Put name back together.
+    var name = [parsed.repo, parsed.name].join('/');
+
+    if (parsed.tag) {
+
+      // Add version.
+      return [name, parsed.tag].join(':');
+
+    } else {
+
+      return name;
+
+    }
+
+  };
+
+  /*
+   * Parse decorate and stringify the image name.
+   */
+  var decorateImageName = function(imageName) {
+
+    // Load global dependencies.
+    return kbox.core.deps.call(function(globalConfig) {
+
+      // Parse image name.
+      var parsed = parseImageName(imageName);
+
+      // Set and validate the engine repo.
+      var engineRepo = globalConfig.engineRepo;
+      if (typeof engineRepo !== 'string') {
+
+        // Throw error.
+        throw new Error('Invalid config.engineRepo: ' +
+          globalConfig.engineRepo);
+
+      }
+
+      // Get and validate version.
+      var version = globalConfig.version;
+      // Force version's patch to zero.
+      var versionParts = version.split('.');
+      if (versionParts.length !== 3) {
+        throw new Error('Invalid config.version: ' + version);
+      }
+      version = 'v' + [versionParts[0], versionParts[1], '0'].join('.');
+
+      if (!parsed.repo) {
+
+        // Get repo name from global config.
+        parsed.repo = engineRepo;
+
+      }
+
+      if (parsed.repo === engineRepo && !parsed.tag) {
+
+        // Set the tag to the version.
+        parsed.tag = version;
+
+      }
+
+      // Stringify and return parsed image name.
+      return parsedImageNameToString(parsed);
+
+    });
+
+  };
+
   var init = function(engineConfig) {
 
     logDebug('DOCKER => initializing. ', engineConfig);
@@ -231,6 +376,10 @@ module.exports = function(kbox) {
   };
 
   var create = function(createOptions, callback) {
+
+    // Decorate the Image property of createOptions.
+    createOptions.Image = decorateImageName(createOptions.Image);
+
     logInfo('DOCKER => Creating container.');
     var containerName = createOptions.name;
     containerExists(containerName, function(err, exists) {
@@ -337,6 +486,9 @@ module.exports = function(kbox) {
   };
 
   var once = function(image, cmd, crtOpts, strOpts, callback, done) {
+
+    image = decorateImageName(image);
+
     if (typeof image !== 'string') {
       throw new TypeError('Invalid image: ' + image);
     }
@@ -455,6 +607,9 @@ module.exports = function(kbox) {
 
   var run = function(image, cmd, streamIn, streamOut,
     createOptions, startOptions, callback) {
+
+    image = decorateImageName(image);
+
     var opts = {
       Hostname: '',
       User: '',
@@ -544,6 +699,9 @@ module.exports = function(kbox) {
 
   // @todo: document
   var query = function(image, cmd, createOpts, startOpts, callback, done) {
+
+    image = decorateImageName(image);
+
     var opts = {
       Hostname: '',
       User: '',
@@ -721,7 +879,8 @@ module.exports = function(kbox) {
     }
   };
 
-  var build = function(image, callback) {
+  var buildInternal = function(image, callback) {
+
     logInfo('DOCKER => Building image.', image);
     var workingDir = path.dirname(image.src);
     var filename = 'archive.tar';
@@ -786,6 +945,131 @@ module.exports = function(kbox) {
         });
       }
     });
+  };
+
+  /*
+   * Decorate raw image object.
+   */
+  var decorateRawImage = function(rawImage) {
+
+    // Validate
+    if (typeof rawImage !== 'object') {
+      throw new TypeError('Invalid docker image object: ' + pp(rawImage));
+    }
+    if (typeof rawImage.name !== 'string' || rawImage.name.length === 0) {
+      throw new TypeError('Invalid image name: ' + pp(rawImage));
+    }
+    if (rawImage.forcePull && typeof rawImage.forcePull !== 'boolean') {
+      throw new TypeError('Invalid image.forcePull: ' + pp(rawImage));
+    }
+
+    // Validate raw image's keys.
+    var validKeys = [
+      'build',
+      'createOpts',
+      'forcePull',
+      'name',
+      'postProviderOpts',
+      'src',
+      'srcRoot',
+      'startOpts'
+    ];
+    _.each(_.keys(rawImage), function(key) {
+      if (!_.contains(validKeys, key)) {
+        throw new TypeError('Invalid image key=' + key + ' : ' + pp(rawImage));
+      }
+    });
+
+    // Get build local dependency.
+    var buildLocal = kbox.core.deps.contains('buildLocal') ?
+      kbox.core.deps.lookup('buildLocal', {optional:true}) : false;
+
+    if (rawImage.forcePull && rawImage.build) {
+      throw new Error('Invalid, image.forcePull and image.build' +
+        ' are both set: ' + pp(rawImage));
+    }
+
+    // Force pull takes president!
+    var shouldBuild = !rawImage.forcePull && (rawImage.build || buildLocal);
+
+    // Build image to be returned.
+    var image = {
+      name: decorateImageName(rawImage.name),
+      build: shouldBuild,
+      createOpts: rawImage.createOpts,
+      startOpts: rawImage.startOpts,
+      postProviderOpts: rawImage.postProviderOpts
+    };
+
+    if (shouldBuild) {
+
+      // Default src root.
+      if (!rawImage.src && !rawImage.srcRoot) {
+        rawImage.srcRoot = kbox.core.deps.lookup('globalConfig').srcRoot;
+      }
+
+      // Validate src root.
+      if (!rawImage.src && typeof rawImage.srcRoot !== 'string') {
+        throw new TypeError('Invalid image.srcRoot: ' + pp(rawImage));
+      }
+      if (!rawImage.srcRoot && typeof rawImage.src !== 'string') {
+        throw new TypeError('Invalid image.src: ' + pp(rawImage));
+      }
+
+      // Build Dockerfile path.
+      if (rawImage.src) {
+
+        image.src = rawImage.src;
+
+      } else {
+
+        var parsed = parseImageName(rawImage.name);
+        image.src = path.join(rawImage.srcRoot, 'dockerfiles',
+          parsed.name, 'Dockerfile');
+
+      }
+
+      if (!fs.existsSync(image.src)) {
+
+        // Throw error is dockerfile doesn't exist.
+        throw new Error('Could not find image file: ' + image.src);
+
+      }
+
+    }
+
+    return image;
+
+  };
+
+  /*
+   * Decorate image object, and decide to build or pull.
+   */
+  var build = function(rawImage, callback) {
+
+    // Validate
+    if (typeof callback !== 'function') {
+      throw new TypeError('Invalid callback function: ' + pp(callback));
+    }
+    if (typeof rawImage !== 'object') {
+      callback(new TypeError('Invalid docker image object: ' + pp(rawImage)));
+    }
+
+    // Decorate and validate the raw image.
+    var image = decorateRawImage(rawImage);
+
+    if (image.build) {
+
+      // Build image locally rather than the docker registry.
+      buildInternal(image, callback);
+
+    } else {
+
+      // Pull image from docker registry.
+      pull(image, callback);
+
+    }
+
   };
 
   return {
