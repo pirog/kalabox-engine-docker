@@ -960,7 +960,7 @@ module.exports = function(kbox) {
       throw new TypeError('Invalid image name: ' + pp(rawImage));
     }
     if (rawImage.forcePull && typeof rawImage.forcePull !== 'boolean') {
-      throw new TypeErorr('Invalid image.forcePull: ' + pp(rawImage));
+      throw new TypeError('Invalid image.forcePull: ' + pp(rawImage));
     }
 
     // Validate raw image's keys.
