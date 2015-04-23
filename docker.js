@@ -952,10 +952,6 @@ module.exports = function(kbox) {
    */
   var decorateRawImage = function(rawImage) {
 
-    if (rawImage.name === 'kalabox/git:stable') {
-      throw new Error('foo');
-    }
-
     // Validate
     if (typeof rawImage !== 'object') {
       throw new TypeError('Invalid docker image object: ' + pp(rawImage));
