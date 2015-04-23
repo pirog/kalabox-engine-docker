@@ -983,7 +983,7 @@ module.exports = function(kbox) {
 
     // Get build local dependency.
     var buildLocal = kbox.core.deps.contains('buildLocal') ?
-      kbox.core.deps.lookup('buildLocal') : false;
+      kbox.core.deps.lookup('buildLocal', {optional:true}) : false;
 
     var shouldBuild = rawImage.build || buildLocal;
 
