@@ -959,11 +959,15 @@ module.exports = function(kbox) {
     if (typeof rawImage.name !== 'string' || rawImage.name.length === 0) {
       throw new TypeError('Invalid image name: ' + pp(rawImage));
     }
+    if (rawImage.forcePull && typeof rawImage.forcePull !== 'boolean') {
+      throw new TypeErorr('Invalid image.forcePull: ' + pp(rawImage));
+    }
 
     // Validate raw image's keys.
     var validKeys = [
       'build',
       'createOpts',
+      'forcePull',
       'name',
       'postProviderOpts',
       'src',
@@ -980,7 +984,13 @@ module.exports = function(kbox) {
     var buildLocal = kbox.core.deps.contains('buildLocal') ?
       kbox.core.deps.lookup('buildLocal', {optional:true}) : false;
 
-    var shouldBuild = rawImage.build || buildLocal;
+    if (rawImage.forcePull && rawImage.build) {
+      throw new Error('Invalid, image.forcePull and image.build' +
+        ' are both set: ' + pp(rawImage));
+    }
+
+    // Force pull takes president!
+    var shouldBuild = !rawImage.forcePull && (rawImage.build || buildLocal);
 
     // Build image to be returned.
     var image = {
