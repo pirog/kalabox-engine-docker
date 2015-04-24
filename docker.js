@@ -10,7 +10,6 @@ var fs = require('fs');
 var path = require('path');
 var _ = require('lodash');
 var Dockerode = require('dockerode');
-var S = require('string');
 
 var docker = null;
 var dockerConfig = null;
@@ -214,14 +213,13 @@ module.exports = function(kbox) {
 
   var charsToRemove = ['/', ' '];
   var cleanupDockerContainerName = function(name) {
-    var str = S(name);
     var charToRemove = _.find(charsToRemove, function(char) {
-      return str.startsWith(char);
+      return _.startsWith(name, char);
     });
     if (charToRemove === undefined) {
       return name;
     } else {
-      return str.chompLeft(charToRemove).s;
+      return name.slice(1);
     }
   };
 
