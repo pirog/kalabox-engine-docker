@@ -10,7 +10,7 @@ var _exec = require('child_process').exec;
 var fs = require('fs');
 var path = require('path');
 var fileinput = require('fileinput');
-var S = require('string');
+var _ = require('lodash');
 
 module.exports = function(kbox) {
 
@@ -63,11 +63,11 @@ module.exports = function(kbox) {
     var b2dProfileFile = new fileinput.FileInput([getProfile()]);
     b2dProfileFile
       .on('line', function(line) {
-        var current = S(line.toString('utf8')).trim().s;
-        if (!S(current).startsWith('#') && !S(current).isEmpty()) {
-          if (S(current).include('=')) {
+        var current = _.trim(line.toString('utf8'));
+        if (!_.startsWith(current, '#') && !_.isEmpty(current)) {
+          if (_.contains(current, '=')) {
             var pieces = current.split('=');
-            profile[S(pieces[0]).trim().s] = S(pieces[1]).trim().s;
+            profile[_.trim(pieces[0])] = _.trim(pieces[1]);
           }
         }
       })
