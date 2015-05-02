@@ -173,7 +173,6 @@ module.exports = function(kbox) {
   };
 
   var init = function(engineConfig) {
-
     logDebug('DOCKER => initializing. ', engineConfig);
     dockerConfig = engineConfig;
     docker = new Dockerode(dockerConfig);
@@ -254,7 +253,9 @@ module.exports = function(kbox) {
           if (container === null) {
             return false;
           } else if (appName !== null) {
-            return container.app === appName;
+            var split = container.name.split('_');
+            var isData = (split[2] === 'data') ? true : false;
+            return (container.app === appName && !isData);
           } else {
             return true;
           }
@@ -950,6 +951,8 @@ module.exports = function(kbox) {
    */
   var decorateRawImage = function(rawImage) {
 
+    console.log(rawImage);
+
     // Validate
     if (typeof rawImage !== 'object') {
       throw new TypeError('Invalid docker image object: ' + pp(rawImage));
@@ -1044,6 +1047,8 @@ module.exports = function(kbox) {
    * Decorate image object, and decide to build or pull.
    */
   var build = function(rawImage, callback) {
+
+    console.log(rawImage);
 
     // Validate
     if (typeof callback !== 'function') {
