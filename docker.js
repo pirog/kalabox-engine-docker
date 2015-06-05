@@ -6,29 +6,25 @@
  */
 
 /*
- * Dependency modules.
+ * Node API modules.
  */
-var Dockerode = require('dockerode');
-var _ = require('lodash');
-var async = require('async');
+var assert = require('assert');
+var format = require('util').format;
 var fs = require('fs');
 var path = require('path');
 var pp = require('util').inspect;
-var format = require('util').format;
-var VError = require('verror');
-var retry = require('retry-bluebird');
-var assert = require('assert');
+
+/*
+ * NPM modules.
+ */
+var Dockerode = require('dockerode');
 var MemoryStream = require('memorystream');
-
-/*
- * Singleton docker object instance.
- */
-var dockerInstance = null;
-
-/*
- * Singleton docker config object.
- */
-var dockerConfigInstance = null;
+var Promise = require('bluebird');
+var VError = require('verror');
+var _ = require('lodash');
+var async = require('async');
+var retry = require('retry-bluebird');
+var uuid = require('uuid');
 
 // Build module.
 module.exports = function(kbox) {
@@ -36,83 +32,76 @@ module.exports = function(kbox) {
   // Save for later.
   var self = this;
 
-  var Promise = kbox.promise;
-
-  // Create logger.
+  // Create logging functions.
   var log = kbox.core.log.make('DOCKER');
-
-  /*
-   * Load tasks and events.
-   */
-  require('./index.js')(kbox);
-
-  /*
-   * Initialize docker instance.
-   */
-  var init = function(engineConfig) {
-
-    // Log engine config.
-    log.debug('Initializing.', engineConfig);
-
-    try {
-      // Set instances.
-      dockerConfigInstance = engineConfig;
-      dockerInstance = new Dockerode(dockerConfigInstance);
-    } catch (err) {
-      // Wrap errors.
-      throw new VError(err,
-        'Failure during docker instance initialization: %s',
-        pp(engineConfig)
-      );
-    }
-
-  };
-
-  /*
-   * Unitialize docker instance.
-   */
-  var teardown = function() {
-
-    dockerInstance = null;
-
-  };
 
   /*
    * Load the provider module.
    */
-  var getProviderModule = function() {
-
-    var mod = null;
+  var getProvider = _.once(function() {
 
     // Log.
     log.debug('Initializing provider.');
 
-    try {
-      // Load provider module.
-      mod = require('./provider/b2d.js')(kbox);
-    } catch (err) {
-      // Wrap errors.
+    // Load.
+    return Promise.try(function() {
+      return require('./provider/b2d.js')(kbox);
+    })
+    // Log success.
+    .tap(function() {
+      log.debug('Provider initialized.');
+    })
+    // Wrap errors.
+    .catch(function(err) {
       throw new VError(err, 'Failure initializing provider.');
-    }
-
-  };
-
-  /*
-   * Inspect a container.
-   */
-  var inspect = function(container) {
-    return Promise.fromNode(container.inspect);
-  };
-
-  /*
-   * Return true if the container is running otherwise false.
-   */
-  var isRunning = function(container) {
-    return inspect(container)
-    .then(function(data) {
-      return _.get(data, 'State.Running', false);
     });
-  };
+
+  });
+
+  /*
+   * Docker config instance lazy loaded and cached singelton.
+   */
+  var dockerConfigInstance = _.once(function() {
+
+    // Log start.
+    log.debug('Initializing docker config.');
+
+    // Get engine config from provider.
+    return getProvider().call('engineConfig')
+    // Register engine config dependency.
+    .tap(function(engineConfig) {
+      log.debug('Docker config initialized.');
+      kbox.core.deps.register('engineConfig', engineConfig);
+    })
+    // Wrap errors.
+    .catch(function(err) {
+      throw new VError(err, 'Error getting docker config.');
+    });
+
+  });
+
+  /*
+   * Docker instance lazy loaded and cached singleton.
+   */
+  var dockerInstance = _.once(function() {
+
+    // Get docker config.
+    return dockerConfigInstance()
+    // Initalize a dockerode object.
+    .then(function(engineConfig) {
+      log.debug('Initializing docker.', engineConfig);
+      return new Dockerode(engineConfig);
+    })
+    // Log success.
+    .tap(function() {
+      log.debug('Docker initialized.');
+    })
+    // Wrap errors.
+    .catch(function(err) {
+      throw new VError(err, 'Error initializing docker.');
+    });
+
+  });
 
   /*
    * Return a containers name.
@@ -134,16 +123,25 @@ module.exports = function(kbox) {
     var containerNameString = getContainerName(dockerContainer);
 
     // Parse docker container name.
-    var name = kbox.util.docker.containerName.parse(containerNameString);
+    var name = null;
+    try {
+      name = kbox.util.docker.containerName.parse(containerNameString);
+    } catch (err) {
+      name = null;
+    }
 
     // Build generic container.
     // @todo: @bcauldwell - What defines a generic container should
     // go in a kbox library module.
-    return {
-      id: dockerContainer.id,
-      name: containerNameString,
-      app: name.app
-    };
+    if (!name) {
+      return null;
+    } else {
+      return {
+        id: dockerContainer.Id,
+        name: containerNameString,
+        app: name.app
+      };
+    }
 
   };
 
@@ -153,8 +151,11 @@ module.exports = function(kbox) {
   var list = function(appName) {
 
     // Query docker for list of containers.
-    return Promise.fromNode(function(cb) {
-      dockerInstance.listContainers({all: 1}, cb);
+    return dockerInstance()
+    .then(function(dockerInstance) {
+      return Promise.fromNode(function(cb) {
+        dockerInstance.listContainers({all: 1}, cb);
+      });
     })
     // Make sure we have a timeout.
     .timeout(30 * 1000)
@@ -164,7 +165,7 @@ module.exports = function(kbox) {
     })
     // Map docker containers to generic containers.
     .map(toGenericContainer)
-    // Filter out nulls.
+    // Filter out nulls and undefineds.
     .filter(_.identity)
     // Filter by app name if an app name was given.
     .then(function(containers) {
@@ -224,9 +225,9 @@ module.exports = function(kbox) {
     .then(function(container) {
       if (container) {
         // Map container id to a docker container.
-        return dockerInstance.getContainer(container.id);
+        return dockerInstance().call('getContainer', container.id);
       } else {
-        return;
+        return undefined;
       }
     });
 
@@ -237,15 +238,61 @@ module.exports = function(kbox) {
    */
   var findContainerThrows = function(cid) {
 
+    if (typeof cid !== 'string') {
+      throw new Error(format('Invalid container id: "%s"', pp(cid)));
+    }
+
     // Find container.
     return findContainer(cid)
     // Throw an error if a container was not found.
     .tap(function(container) {
       if (!container) {
-        throw new Error(format('The container %s does not exist!', cid));
+        throw new Error(format('The container "%s" does not exist!', pp(cid)));
       }
     });
 
+  };
+
+  /*
+   * Inspect a container.
+   */
+  var inspect = function(cid) {
+
+    // Find a container.
+    return findContainerThrows(cid)
+    // Inspect container.
+    .then(function(container) {
+      return Promise.fromNode(function(cb) {
+        container.inspect(cb);
+      });
+    })
+    // Wrap errors.
+    .catch(function(err) {
+      throw new VError(err, 'Error inspecting container.', cid);
+    });
+  };
+
+  /*
+   * Return true if the container is running otherwise false.
+   */
+  var isRunning = function(cid) {
+    // Validate input.
+    return Promise.try(function() {
+      if (typeof cid !== 'string') {
+        throw new Error('Invalid cid: ' + pp(cid));
+      }
+    })
+    // Inspect.
+    .then(function() {
+      return inspect(cid);
+    })
+    .then(function(data) {
+      return _.get(data, 'State.Running', false);
+    })
+    // Wrap errors.
+    .catch(function(err) {
+      throw new VError(err, 'Error querying isRunning: "%s".', pp(cid));
+    });
   };
 
   /*
@@ -254,20 +301,24 @@ module.exports = function(kbox) {
   var info = function(cid) {
 
     // Find a generic container.
-    return findContainer(cid)
+    return findGenericContainer(cid)
     .then(function(container) {
 
       if (!container) {
 
         // No container found so return undefined.
-        return;
+        return undefined;
 
       } else {
 
         // Inspect container.
-        return Promise.fromNode(function(cb) {
-          dockerInstance.getContainer(container.id).inspect(cb);
+        return dockerInstance()
+        .then(function(dockerInstance) {
+          return Promise.fromNode(function(cb) {
+            dockerInstance.getContainer(container.id).inspect(cb);
+          });
         })
+        // Wrap errors.
         .catch(function(err) {
           throw new VError(err, 'Error inspecting container: %s.', cid);
         })
@@ -275,7 +326,7 @@ module.exports = function(kbox) {
         .then(function(data) {
 
           // Add port mappings.
-          var ports = _.get(data, 'NetworkSettings.ports', {});
+          var ports = _.get(data, 'NetworkSettings.Ports', {});
           container.ports = _.map(ports, function(val, key) {
             var port = key;
             var hostPort = val[0].HostPort || 'ERROR';
@@ -284,6 +335,8 @@ module.exports = function(kbox) {
 
           // Add container's running status.
           container.running = _.get(data, 'State.Running', false);
+
+          return container;
 
         });
 
@@ -325,8 +378,13 @@ module.exports = function(kbox) {
       log.info('Creating container.', opts);
     })
     // Create the container.
-    .fromNode(function(cb) {
-      dockerInstance.createContainer(opts);
+    .then(function() {
+      return dockerInstance()
+      .then(function(dockerInstance) {
+        return Promise.fromNode(function(cb) {
+          dockerInstance.createContainer(opts, cb);
+        });
+      });
     })
     // Map data to a result object.
     .then(function(data) {
@@ -354,12 +412,20 @@ module.exports = function(kbox) {
     // Log starting.
     log.info(format('Starting container %s.', cid), opts);
 
-    // Find container and it's running status.
-    return Promise.all([
-      findContainerThrows(cid),
-      isRunning(cid)
-    ])
-    .spread(function(container, isRunning) {
+    // Find and bind container.
+    return findContainerThrows(cid)
+    .bind({})
+    .then(function(container) {
+      this.container = container;
+    })
+    // Find out if container is already running.
+    .then(function() {
+      return isRunning(cid);
+    })
+    .then(function(isRunning) {
+
+      // Save for later.
+      var self = this;
 
       if (isRunning) {
 
@@ -370,7 +436,7 @@ module.exports = function(kbox) {
 
         // Start container.
         return Promise.fromNode(function(cb) {
-          container.start(opts);
+          this.container.start(opts, cb);
         })
         // Log finished.
         .then(function() {
@@ -392,21 +458,30 @@ module.exports = function(kbox) {
    */
   var exec = function(cid, opts) {
 
+    // Tty = use in terminal mode.
+
+    /*
+     * Terminal mode does not support demuxing streams into stdout and stderr.
+     */
+
+    // Default options.
     opts.tty = opts.tty || false;
     opts.cmd = opts.cmd || ['bash'];
 
-    var execOpts = {
-      AttachStdin: opts.tty,
+    // Exec creation options.
+    var createOpts = {
+      AttachStdin: opts.tty, // Attach stdin if terminal mode.
       AttachStdout: true,
       AttachStderr: true,
-      Tty: opts.tty,
-      Cmd: opts.cmd,
-      stream: true
+      Tty: opts.tty, // Terminal mode.
+      Cmd: opts.cmd, // Command to execute.
+      stream: true // Needed for dockerode.
     };
 
+    // Exec start options.
     var startOpts = {
-      Detach: false,
-      stdin: opts.tty,
+      Detach: false, // Needs to be detached so process doesn't block.
+      stdin: opts.tty, // Attach stdin if terminal mode.
       stdout: true,
       stderr: true
     };
@@ -416,11 +491,13 @@ module.exports = function(kbox) {
     // Create a container exec.
     .then(function(container) {
       return Promise.fromNode(function(cb) {
-        container.exec(execOpts, cb);
+        log.debug('Creating exec.', createOpts);
+        container.exec(createOpts, cb);
       })
       // Start the exec.
       .then(function(exec) {
         return Promise.fromNode(function(cb) {
+          log.debug('Starting exec.', startOpts);
           exec.start(startOpts, cb);
         });
       })
@@ -434,9 +511,13 @@ module.exports = function(kbox) {
           // Just stdout to worry about.
           process.stdin.pipe(stream);
           result.stdout = stream;
-          result.wait = Promise.fromNode(function(cb) {
-            result.stdout.on('end', cb);
-          });
+          result.stdout.setEncoding('utf8');
+          // Function to wait on.
+          result.wait = function() {
+            return new Promise.fromNode(function(cb) {
+              stream.on('end', cb);
+            });
+          };
 
         } else {
 
@@ -446,12 +527,17 @@ module.exports = function(kbox) {
           result.stdout.setEncoding('utf8');
           result.stderr.setEncoding('utf8');
           container.modem.demuxStream(stream, result.stdout, result.stderr);
-          result.wait = new Promise(function(fulfill, reject) {
-            result.stdout.on('end', fulfill);
-            result.stderr.on('data', function(data) {
-              reject(new Error(data));
+          // Function to wait on.
+          result.wait = function() {
+            return new Promise(function(fulfill, reject) {
+              stream.on('end', function() {
+                fulfill();
+              });
+              result.stderr.on('data', function(data) {
+                reject(new Error(data));
+              });
             });
-          });
+          };
 
         }
 
@@ -470,22 +556,69 @@ module.exports = function(kbox) {
   /*
    * Open a terminal to a container.
    */
-  var terminal = function(cid, cmd) {
-    return exec(cid, cmd);
+  var terminal = function(cid) {
+
+    // Exec options.
+    var opts = {
+      cmd: ['/bin/bash'], // Terminal should run bash shell.
+      tty: true // Terminal mode should be turned on so we get prompts.
+    };
+
+    // Create and start exec.
+    return exec(cid, opts)
+    .then(function(res) {
+      // Pipe terminal's stdout to local stdout.
+      res.stdout.pipe(process.stdout);
+      // Wait for terminal session to end.
+      return res.wait()
+      // Do some cleanup.
+      .then(function() {
+        process.stdin.destroy();
+      });
+    });
+
   };
 
   /*
    * Run a query against a container.
    */
   var query = function(cid, cmd) {
-    return exec(cid, cmd);
+
+    // Exec options.
+    var opts = {
+      cmd: cmd
+    };
+
+    return exec(cid, opts);
+
+  };
+
+  /*
+   * Run a query against a container, return data.
+   */
+  var queryData = function(cid, cmd) {
+
+    // Query container.
+    return query(cid, cmd)
+    .then(function(res) {
+      // Wait for container to finish.
+      return res.wait()
+      // Return contents of stdout.
+      .then(function() {
+        return res.stdout.toString();
+      });
+    });
+
   };
 
   /*
    * Create a container, do something, then make sure it gets stopped
    * and removed.
    */
-  var run = function(image, createOpts, startOpts, fn) {
+  var use = function(rawImage, createOpts, startOpts, fn) {
+
+    // Expand image.
+    var image = kbox.util.docker.imageName.expand(rawImage);
 
     // Argument processing.
     if (!fn && _.isFunction(startOpts)) {
@@ -499,22 +632,45 @@ module.exports = function(kbox) {
       createOpts = {};
     }
 
+    // Get a temp container name.
+    var name = kbox.util.docker.containerName.format(
+      kbox.util.docker.containerName.createTemp()
+    );
+
     // Extend options.
     var opts = {
-      Cmd: ['true'],
+      name: name,
+      Cmd: ['bash'], // This makes sure container doesn't stop until removed.
+      Tty: true,
       Image: image
     };
     _.extend(opts, createOpts);
 
     // Create container.
-    return Promise.fromNode(function(cb) {
-      log.info('Creating ad hoc container.', image);
-      dockerInstance.createContainer(opts, cb);
+    return dockerInstance()
+    .then(function(dockerInstance) {
+      return Promise.fromNode(function(cb) {
+        log.info('Creating ad hoc container.', image);
+        dockerInstance.createContainer(opts, cb);
+      });
     })
-    // Bind container id.
+    // Bind container.
+    .bind({})
     .then(function(container) {
       log.info('Ad hoc container created.', container.id);
-      return Promise.bind({container: container});
+      this.container = container;
+    })
+    // Start container.
+    .then(function() {
+      // Save for later.
+      var self = this;
+      log.info('Starting ad hoc container.', self.container.id);
+      return Promise.fromNode(function(cb) {
+        self.container.start(startOpts, cb);
+      })
+      .then(function() {
+        log.info('Ad hoc container started.', self.container.id);
+      });
     })
     // Run callback.
     .then(function() {
@@ -526,11 +682,13 @@ module.exports = function(kbox) {
     })
     // Cleanup.
     .finally(function() {
+      // Save for later.
+      var self = this;
       // Remove container.
-      if (this.container) {
+      if (self.container) {
         log.info('Removing ad hoc container.', this.container.id);
         return Promise.fromNode(function(cb) {
-          this.container.remove({force: true}, cb);
+          self.container.remove({force: true}, cb);
         });
       }
     });
@@ -543,18 +701,27 @@ module.exports = function(kbox) {
     // Log start.
     log.info('Stopping container.', cid);
 
-    // Find container and it's running state.
-    return Promise.all([
-      findContainerThrows(cid),
-      isRunning(cid)
-    ])
-    .spread(function(container, isRunning) {
+    // Find and bind container.
+    return findContainerThrows(cid)
+    .bind({})
+    .then(function(container) {
+      this.container = container;
+    })
+    // Check if container is running.
+    .then(function() {
+      return isRunning(cid);
+    })
+    // Stop container if it is running.
+    .then(function(isRunning) {
+      var self = this;
       if (!isRunning) {
         // Container is already stopped so do nothing.
         log.info('Container already stopped.', cid);
       } else {
         // Stop container.
-        return Promise.fromNode(container.stop)
+        return Promise.fromNode(function(cb) {
+          self.container.stop(cb);
+        })
         // Log success.
         .then(function() {
           log.info('Container stopped.', cid);
@@ -593,8 +760,10 @@ module.exports = function(kbox) {
         }
       })
       // Remove the container.
-      .fromNode(function(cb) {
-        container.remove(opts);
+      .then(function() {
+        return Promise.fromNode(function(cb) {
+          container.remove(opts, cb);
+        });
       })
       // Log success.
       .then(function() {
@@ -619,11 +788,13 @@ module.exports = function(kbox) {
       stdout.on('data', function(data) {
         try {
           // Parse and log json.
-          var json = JSON.stringify(data);
-          log.info(json);
+          var json = JSON.parse(data);
           if (!json.stream) {
             // This is either an error message or something we don't expect.
+            log.info(json);
             reject(new Error(json));
+          } else {
+            log.info(json.stream);
           }
         } catch (err) {
           // Error trying to parse json, so just treat it as a string.
@@ -666,7 +837,7 @@ module.exports = function(kbox) {
         tarFilepath;
 
     // Tar command.
-    var cmd = ['tar', '-cfv', crossPlatformTarFilepath, '*'];
+    var cmd = ['tar', '-cvf', crossPlatformTarFilepath, '*'];
 
     // Run tar command.
     return Promise.fromNode(function(cb) {
@@ -678,11 +849,14 @@ module.exports = function(kbox) {
     })
     // Start the building of the image.
     .then(function(tarStream) {
-      return Promise.fromNode(function(cb) {
-        var buildOpts = {
-          t: image.name
-        };
-        dockerInstance.buildImage(tarStream, buildOpts, cb);
+      return dockerInstance()
+      .then(function(dockerInstance) {
+        return Promise.fromNode(function(cb) {
+          var buildOpts = {
+            t: image.name
+          };
+          dockerInstance.buildImage(tarStream, buildOpts, cb);
+        });
       });
     })
     // Monitor the output of the building of the image.
@@ -713,8 +887,11 @@ module.exports = function(kbox) {
     log.info('Pulling image.', image);
 
     // Start pulling docker image.
-    return Promise.fromNode(function(cb) {
-      dockerInstance.pull(image.name, cb);
+    return dockerInstance()
+    .then(function(dockerInstance) {
+      return Promise.fromNode(function(cb) {
+        dockerInstance.pull(image.name, cb);
+      });
     })
     // Consume stdout from pulling docker image.
     .then(consumeBuildOrPullStream)
@@ -856,17 +1033,19 @@ module.exports = function(kbox) {
     exec: exec,
     get: findContainer,
     getEnsure: findContainerThrows,
-    getProviderModule: getProviderModule,
+    getProvider: getProvider,
     info: info,
-    init: init,
     inspect: inspect,
+    isRunning: isRunning,
     list: list,
     pull: pull,
+    query: query,
+    queryData: queryData,
     remove: remove,
-    run: run,
     start: start,
     stop: stop,
-    teardown: teardown
+    terminal: terminal,
+    use: use
   };
 
 };
