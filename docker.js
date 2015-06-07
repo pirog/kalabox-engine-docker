@@ -765,7 +765,7 @@ module.exports = function(kbox) {
       .finally(function() {
         log.debug('Removing RUN container.', removeOpts);
         return Promise.fromNode(function(cb) {
-           container.remove(removeOpts, cb);
+          container.remove(removeOpts, cb);
         })
         .tap(function() {
           log.debug('Removed RUN container.');
