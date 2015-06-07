@@ -436,7 +436,7 @@ module.exports = function(kbox) {
 
         // Start container.
         return Promise.fromNode(function(cb) {
-          this.container.start(opts, cb);
+          self.container.start(opts, cb);
         })
         // Log finished.
         .then(function() {
@@ -695,7 +695,89 @@ module.exports = function(kbox) {
 
   };
 
-  // Stop a container.
+  /*
+   * Create and run a command inside of a container.
+   */
+  var run = function(rawImage, cmd, createOpts, startOpts) {
+
+    var image = kbox.util.docker.imageName.expand(rawImage);
+
+    var defaultCreateOpts = {
+      AttachStdin: true,
+      AttachStdout: true,
+      AttachStderr: true,
+      Tty: true,
+      OpenStdin: true,
+      StdinOnce: false,
+      Cmd: cmd,
+      Image: image
+    };
+
+    createOpts = _.extend(defaultCreateOpts, createOpts);
+
+    var attachOpts = {
+      stream: true,
+      stdin: true,
+      stdout: true,
+      stderr: true
+    };
+
+    var removeOpts = {
+      force: true
+    };
+
+    return dockerInstance()
+    .then(function(dockerInstance) {
+      log.debug('Creating RUN container.', createOpts);
+      return Promise.fromNode(function(cb) {
+        dockerInstance.createContainer(createOpts, cb);
+      })
+      .tap(function() {
+        log.debug('Created RUN container.');
+      });
+    })
+    .then(function(container) {
+      log.debug('Attaching to RUN container.', attachOpts);
+      return Promise.fromNode(function(cb) {
+        container.attach(attachOpts, cb);
+      })
+      .tap(function() {
+        log.debug('Attached to RUN container.')  ;
+      })
+      .then(function(stream) {
+        stream.pipe(process.stdout);
+      })
+      .then(function() {
+        log.debug('Starting RUN container.', startOpts);
+        return Promise.fromNode(function(cb) {
+          container.start(startOpts, cb);
+        })
+        .tap(function() {
+          log.debug('Started RUN container.');
+        });
+      })
+      .then(function() {
+        log.debug('Waiting on RUN container.');
+        return Promise.fromNode(function(cb) {
+          container.wait(cb);
+        });
+      })
+      .finally(function() {
+        log.debug('Removing RUN container.', removeOpts);
+        return Promise.fromNode(function(cb) {
+           container.remove(removeOpts, cb);
+        })
+        .tap(function() {
+          log.debug('Removed RUN container.');
+        });
+      });
+    });
+
+  };
+
+  /*
+   * Stop a container.
+   */
   var stop = function(cid) {
 
     // Log start.
@@ -1042,6 +1124,7 @@ module.exports = function(kbox) {
     query: query,
     queryData: queryData,
     remove: remove,
+    run: run,
     start: start,
     stop: stop,
     terminal: terminal,
