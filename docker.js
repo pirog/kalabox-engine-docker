@@ -877,7 +877,9 @@ module.exports = function(kbox) {
       stdout.on('data', function(data) {
         try {
           // Parse and log json.
+          // @todo: @bcauldwell - Refactor this.
           var json = JSON.parse(data);
+          log.info(json);
           /*if (!json.stream) {
             // This is either an error message or something we don't expect.
             log.info(json);
