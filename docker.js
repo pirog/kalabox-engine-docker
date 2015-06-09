@@ -36,6 +36,13 @@ module.exports = function(kbox) {
   var log = kbox.core.log.make('DOCKER');
 
   /*
+   * Init.
+   */
+  var init = _.once(function() {
+    require('./index.js')(kbox);
+  });
+
+  /*
    * Load the provider module.
    */
   var getProvider = _.once(function() {
@@ -765,7 +772,7 @@ module.exports = function(kbox) {
       .finally(function() {
         log.debug('Removing RUN container.', removeOpts);
         return Promise.fromNode(function(cb) {
-           container.remove(removeOpts, cb);
+          container.remove(removeOpts, cb);
         })
         .tap(function() {
           log.debug('Removed RUN container.');
@@ -871,13 +878,13 @@ module.exports = function(kbox) {
         try {
           // Parse and log json.
           var json = JSON.parse(data);
-          if (!json.stream) {
+          /*if (!json.stream) {
             // This is either an error message or something we don't expect.
             log.info(json);
-            reject(new Error(json));
+            reject(new Error(pp(json)));
           } else {
             log.info(json.stream);
-          }
+          }*/
         } catch (err) {
           // Error trying to parse json, so just treat it as a string.
           log.info(data);
@@ -976,6 +983,7 @@ module.exports = function(kbox) {
       });
     })
     // Consume stdout from pulling docker image.
+    // Monitor the output of the building of the image.
     .then(consumeBuildOrPullStream)
     // Log success.
     .tap(function() {
@@ -983,7 +991,7 @@ module.exports = function(kbox) {
     })
     // Wrap errors.
     .catch(function(err) {
-      throw new VError(err, 'Error pulling image "%s".', image);
+      throw new VError(err, 'Error pulling image "%s".', pp(image));
     });
 
   };
@@ -1117,6 +1125,7 @@ module.exports = function(kbox) {
     getEnsure: findContainerThrows,
     getProvider: getProvider,
     info: info,
+    init: init,
     inspect: inspect,
     isRunning: isRunning,
     list: list,

@@ -97,7 +97,7 @@ module.exports = function(kbox) {
 
     // Read contents of profile file.
     return Promise.fromNode(function(cb) {
-      fs.readFile(getProfilePath(), cb);
+      fs.readFile(getProfilePath(), {encoding: 'utf8'}, cb);
     })
     // Build profile object using contents of profile file.
     .then(function(data) {
@@ -453,7 +453,7 @@ module.exports = function(kbox) {
       var lowerIpOctets = _.trim(profile.LowerIP, '"').split('.');
 
       // Assert the start of upper IP and lower IP are the same.
-      assert(_.take(upperIpOctets, 3) === _.take(lowerIpOctets, 3));
+      assert(_.isEqual(_.take(upperIpOctets, 3), _.take(lowerIpOctets, 3)));
 
       // Get range of last octets for what will be a full list of possible ips.
       var lastOctets = _.range(_.last(lowerIpOctets), _.last(upperIpOctets));

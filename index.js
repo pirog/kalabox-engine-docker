@@ -14,9 +14,7 @@ module.exports = function(kbox) {
 
   };
 
-  var mod = load('./docker.js');
   load('./lib/tasks.js');
   load('./lib/install.js');
-  return mod;
 
 };
