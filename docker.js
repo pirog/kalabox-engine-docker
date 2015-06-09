@@ -657,7 +657,7 @@ module.exports = function(kbox) {
     return dockerInstance()
     .then(function(dockerInstance) {
       return Promise.fromNode(function(cb) {
-        log.info('Creating ad hoc container.', image);
+        log.info(format('Creating ad hoc container "%s".', image), opts);
         dockerInstance.createContainer(opts, cb);
       });
     })
@@ -671,7 +671,10 @@ module.exports = function(kbox) {
     .then(function() {
       // Save for later.
       var self = this;
-      log.info('Starting ad hoc container.', self.container.id);
+      log.info(
+        format('Starting ad hoc container "%s".', self.container.id),
+        startOpts
+      );
       return Promise.fromNode(function(cb) {
         self.container.start(startOpts, cb);
       })
@@ -867,6 +870,28 @@ module.exports = function(kbox) {
   };
 
   /*
+   * Read the contents of the containers logs.
+   */
+  var logs = function(cid, opts) {
+
+    opts = opts || {};
+    opts.stdout = opts.stdout || true;
+    opts.stderr = opts.stderr || false;
+
+    return findContainerThrows(cid)
+    .then(function(container) {
+      return Promise.fromNode(function(cb) {
+        container.logs(opts, cb);
+      });
+    })
+    // Wrap errors.
+    .catch(function(err) {
+      throw new VError(err, 'Error reading container logs: %s.', cid);
+    });
+
+  };
+
+  /*
    * Consume a docker build image or pull image stream.
    */
   var consumeBuildOrPullStream = function(stdout) {
@@ -877,7 +902,6 @@ module.exports = function(kbox) {
       stdout.on('data', function(data) {
         try {
           // Parse and log json.
-          // @todo: @bcauldwell - Refactor this.
           var json = JSON.parse(data);
           log.info(json);
           /*if (!json.stream) {
@@ -1131,6 +1155,7 @@ module.exports = function(kbox) {
     inspect: inspect,
     isRunning: isRunning,
     list: list,
+    logs: logs,
     pull: pull,
     query: query,
     queryData: queryData,
