@@ -336,7 +336,7 @@ module.exports = function(kbox) {
           var ports = _.get(data, 'NetworkSettings.Ports', {});
           container.ports = _.map(ports, function(val, key) {
             var port = key;
-            var hostPort = val[0].HostPort || 'ERROR';
+            var hostPort = _.get(val, '[0].HostPort', null);
             return [port, hostPort].join('=>');
           });
 
