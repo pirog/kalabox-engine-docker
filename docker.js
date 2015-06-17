@@ -913,13 +913,9 @@ module.exports = function(kbox) {
           // Parse and log json.
           var json = JSON.parse(data);
           log.info(json);
-          /*if (!json.stream) {
-            // This is either an error message or something we don't expect.
-            log.info(json);
+          if (json.error) {
             reject(new Error(pp(json)));
-          } else {
-            log.info(json.stream);
-          }*/
+          }
         } catch (err) {
           // Error trying to parse json, so just treat it as a string.
           log.info(data);
