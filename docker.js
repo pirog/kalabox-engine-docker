@@ -756,6 +756,15 @@ module.exports = function(kbox) {
       })
       .then(function(stream) {
         stream.pipe(process.stdout);
+        process.stdin.resume();
+        process.stdin.setEncoding('utf8');
+        process.stdin.setRawMode(true);
+        process.stdin.pipe(stream);
+        stream.on('end', function() {
+          process.stdin.setRawMode(false);
+          process.stdin.destroy();
+        });
+        return stream;
       })
       .then(function() {
         log.debug('Starting RUN container.', startOpts);
