@@ -758,10 +758,14 @@ module.exports = function(kbox) {
         stream.pipe(process.stdout);
         process.stdin.resume();
         process.stdin.setEncoding('utf8');
-        process.stdin.setRawMode(true);
+        if (process.stdin.setRawMode) {
+          process.stdin.setRawMode(true);
+        }
         process.stdin.pipe(stream);
         stream.on('end', function() {
-          process.stdin.setRawMode(false);
+          if (process.stdin.setRawMode) {
+            process.stdin.setRawMode(false);
+          }
           process.stdin.destroy();
         });
         return stream;
