@@ -28,12 +28,8 @@ module.exports = function(kbox) {
   // Get boot2docker executable path.
   var B2D_EXECUTABLE = (process.platform === 'win32') ?
     // Windows.
-    path.win32.join(
-      'C',
-      'Program Files',
-      'Boot2Docker for Windows',
-      'boot2docker.exe'
-    ) + ' --hostip="10.13.37.1"' :
+    '"C:\\Program Files\\Boot2Docker for Windows\\boot2docker.exe"' +
+    ' --hostip="10.13.37.1"' :
     // Other.
     'boot2docker';
 
@@ -369,11 +365,11 @@ module.exports = function(kbox) {
     if (process.platform === 'win32') {
 
       // @todo: @bcauldwell - This is jank as shit.
-      var filepath = _.head(B2D_EXECUTABLE.split(' --'));
+      var filepath = _.trim(_.head(B2D_EXECUTABLE.split(' --')), '"');
 
       // Try to read the boot2docker executable.
       return Promise.fromNode(function(cb) {
-        fs.readFile(filepath, {encoding: 'utf8'}, cb);
+        fs.open(filepath, 'r', cb);
       })
       // Read was a success so return true.
       .then(function() {
@@ -389,7 +385,6 @@ module.exports = function(kbox) {
           throw new VError(err, 'Error trying to read "%s".', filepath);
         }
       });
-
     } else {
 
       // Run which command to find location of boot2docker.
