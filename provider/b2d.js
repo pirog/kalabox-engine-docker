@@ -334,7 +334,7 @@ module.exports = function(kbox) {
 
     // Read contents of profile.
     return Promise.fromNode(function(cb) {
-      fs.readFile(profilePath, cb);
+      fs.readFile(profilePath, {encoding: 'utf8'}, cb);
     })
     // Read was successful so return true.
     .then(function() {
@@ -373,7 +373,7 @@ module.exports = function(kbox) {
 
       // Try to read the boot2docker executable.
       return Promise.fromNode(function(cb) {
-        fs.readFile(filepath, cb);
+        fs.readFile(filepath, {encoding: 'utf8'}, cb);
       })
       // Read was a success so return true.
       .then(function() {
