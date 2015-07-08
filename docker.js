@@ -612,7 +612,7 @@ module.exports = function(kbox) {
       return res.wait()
       // Return contents of stdout.
       .then(function() {
-        return res.stdout.toString();
+        return res.stdout._readableState.buffer.toString();
       });
     });
 
