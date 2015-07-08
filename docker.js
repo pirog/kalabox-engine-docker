@@ -623,8 +623,8 @@ module.exports = function(kbox) {
    * and removed.
    *
    * THIS WILL NOT WORK IF YOU CHANGE THE DEFAULT ENTRYPOINT. MAKE SURE
-   * IT IS SET TO ["/bin/sh", "-c"] IN YOUR CREATEOPTS BEFORE YOU CALL 
-   * THIS
+   * IT IS SET TO ["/bin/sh", "-c"] IN YOUR CREATEOPTS BEFORE YOU CALL
+   * THIS.
    *
    */
   var use = function(rawImage, createOpts, startOpts, fn) {
