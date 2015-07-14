@@ -621,6 +621,11 @@ module.exports = function(kbox) {
   /*
    * Create a container, do something, then make sure it gets stopped
    * and removed.
+   *
+   * THIS WILL NOT WORK IF YOU CHANGE THE DEFAULT ENTRYPOINT. MAKE SURE
+   * IT IS SET TO ["/bin/sh", "-c"] IN YOUR CREATEOPTS BEFORE YOU CALL
+   * THIS.
+   *
    */
   var use = function(rawImage, createOpts, startOpts, fn) {
 
