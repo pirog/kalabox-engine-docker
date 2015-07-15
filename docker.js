@@ -771,7 +771,7 @@ module.exports = function(kbox) {
           if (process.stdin.setRawMode) {
             process.stdin.setRawMode(false);
           }
-          process.stdin.destroy();
+          process.stdin.pause();
         });
         return stream;
       })
