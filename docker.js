@@ -958,11 +958,13 @@ module.exports = function(kbox) {
     // In order to run the tar command we need a cross platform path that
     // will work on windows.
     var crossPlatformTarFilepath =
-      // @todo: @mpirog - Does this work correctly?
-      // Old way of doing this incase what's under this doesn't work.
-      //file.replace(/\\/g, '/').replace('C:/', 'c:/').replace('c:/', '/c/') :
       (process.platform === 'win32') ?
-        path.win32.normalize(tarFilepath) :
+        // @ben: we need to do it this way because we need the shared path INSIDE
+        // the b2d VM not the one on windows
+        tarFilepath
+          .replace(/\\/g, '/')
+          .replace('C:/', 'c:/')
+          .replace('c:/', '/c/') :
         tarFilepath;
 
     // Tar command.
