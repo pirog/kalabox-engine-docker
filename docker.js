@@ -501,8 +501,12 @@ module.exports = function(kbox) {
         log.debug('Creating exec.', createOpts);
         container.exec(createOpts, cb);
       })
+      // Bind with an empty object.
+      .bind({})
       // Start the exec.
       .then(function(exec) {
+        // Store exec object in binding, so we can inspect it later.
+        this.exec = exec;
         return Promise.fromNode(function(cb) {
           log.debug('Starting exec.', startOpts);
           exec.start(startOpts, cb);
@@ -510,6 +514,8 @@ module.exports = function(kbox) {
       })
       // Return result.
       .then(function(stream) {
+
+        var self = this;
 
         var result = {};
 
@@ -536,12 +542,31 @@ module.exports = function(kbox) {
           container.modem.demuxStream(stream, result.stdout, result.stderr);
           // Function to wait on.
           result.wait = function() {
+            // Start a new promise.
             return new Promise(function(fulfill, reject) {
+              // When the stream ends we will check the results of our exec.
               stream.on('end', function() {
-                fulfill();
-              });
-              result.stderr.on('data', function(data) {
-                reject(new Error(data));
+                // Inspect the exec.
+                return Promise.fromNode(function(cb) {
+                  self.exec.inspect(cb);
+                })
+                .then(function(data) {
+                  if (data.Running) {
+                    // This condition shouldn't happen.
+                    reject(new Error('Exec is still running: unexpected!'));
+                  } else if (data.ExitCode === 0) {
+                    // Success!
+                    fulfill();
+                  } else {
+                    // We have a non-zero exit code, grab stderr and report.
+                    var msg = 'Non-zero exit code: ' + data.ExitCode;
+                    var output = result.stderr.read();
+                    if (output) {
+                      msg += ' ' + output;
+                    }
+                    reject(new Error(msg));
+                  }
+                });
               });
             });
           };
