@@ -73,6 +73,14 @@ module.exports = function(kbox) {
   };
 
   /*
+   * Get root directory for provider.
+   */
+  var getLinuxBinPath = function() {
+    var sysConfRoot = kbox.core.deps.get('config').sysConfRoot;
+    return path.join(sysConfRoot, 'bin');
+  };
+
+  /*
    * Get path to provider profile.
    */
   var getProfilePath = function() {
@@ -142,16 +150,28 @@ module.exports = function(kbox) {
     // Set Path environmental variable if we are on windows.
     if (process.platform === 'win32') {
 
-      // Get needed vars
+      // Get Path
       var gitBin = 'C:\\Program Files (x86)\\Git\\bin;';
-      var path = process.env.path;
 
       // Only add the gitbin to the path if the path doesn't start with
       // it. We want to make sure gitBin is first so other things like
       // putty don't F with it.
       // See https://github.com/kalabox/kalabox/issues/342
-      if (!_.startsWith(path, gitBin)) {
-        kbox.core.env.setEnv('Path', gitBin + path);
+      if (!_.startsWith(process.env.path, gitBin)) {
+        kbox.core.env.setEnv('Path', gitBin + process.env.path);
+      }
+    }
+
+    // Set Path environmental variable if we are on linux because we
+    // store the b2d bin in our own spot
+    if (process.platform === 'linux') {
+
+      // Get bin location
+      var b2dBin = getLinuxBinPath();
+
+      // Add the path if we dont already have it
+      if (!_.startsWith(process.env.path, b2dBin)) {
+        kbox.core.env.setEnv('PATH', b2dBin + process.env.path);
       }
     }
 
