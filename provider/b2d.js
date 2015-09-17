@@ -218,7 +218,8 @@ module.exports = function(kbox) {
     .then(function() {
       if (process.platform === 'linux') {
         return retry(opts, function(counter) {
-          // @todo: @bcauldwell @pirog - Should we redo this?
+          // @todo: So i think we should only do this on the first load if we can
+          // to prevent locked session errors, consider adding --automount
           var shareCmd = 'VBoxManage sharedfolder add "Kalabox2"' +
           ' --name "Users" --hostpath "/home"';
           log.info(kbox.util.format('Sharing folders [%s].', counter));
