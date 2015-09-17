@@ -214,14 +214,17 @@ module.exports = function(kbox) {
         });
       });
     })
-    // Manually share files on linux.
+    // Check the status so we know what to do on the next step
     .then(function() {
-      if (process.platform === 'linux') {
+      return getStatus();
+    })
+    // Manually share files on linux. But only do this if the VM is off first
+    .then(function(status) {
+      if (process.platform === 'linux' && status !== 'running') {
         return retry(opts, function(counter) {
-          // @todo: So i think we should only do this on the first load if we can
-          // to prevent locked session errors, consider adding --automount
+          // @todo: make this less gross
           var shareCmd = 'VBoxManage sharedfolder add "Kalabox2"' +
-          ' --name "Users" --hostpath "/home"';
+          ' --name "Users" --hostpath "/home" --automount';
           log.info(kbox.util.format('Sharing folders [%s].', counter));
           return Promise.fromNode(function(cb) {
             _exec(shareCmd, cb);
