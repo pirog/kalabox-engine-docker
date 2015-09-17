@@ -5,33 +5,52 @@
 
 'use strict';
 
-/*
- * Node modules.
- */
-var _exec = require('child_process').exec;
-var assert = require('assert');
-var format = require('util').format;
-var fs = require('fs');
-var path = require('path');
-var pp = require('util').inspect;
-
-/*
- * NPM modules.
- */
-var Promise = require('bluebird');
-var VError = require('verror');
-var _ = require('lodash');
-var retry = require('retry-bluebird');
-
 module.exports = function(kbox) {
 
+  /*
+   * Node modules.
+   */
+  var _exec = require('child_process').exec;
+  var assert = require('assert');
+  var format = require('util').format;
+  var fs = require('fs');
+  var path = require('path');
+  var pp = require('util').inspect;
+
+  /*
+   * NPM modules.
+   */
+  var Promise = require('bluebird');
+  var VError = require('verror');
+  var _ = require('lodash');
+  var retry = require('retry-bluebird');
+
+  /*
+   * Get root directory for provider.
+   */
+  var getLinuxBinPath = function() {
+    var sysConfRoot = kbox.core.deps.get('config').sysConfRoot;
+    return path.join(sysConfRoot, 'bin');
+  };
+
+  /*
+   * Return the B2D executable location
+   */
+  var getB2DExecutable = function() {
+
+    // For cleanliness
+    var wBin = '"C:\\Program Files\\Boot2Docker for Windows\\boot2docker.exe"';
+
+    switch (process.platform) {
+      case 'win32': return [wBin, '--hostip="10.13.37.1"'].join(' ');
+      case 'darwin': return 'boot2docker';
+      case 'linux': return path.join(getLinuxBinPath(), 'boot2docker');
+    }
+
+  };
+
   // Get boot2docker executable path.
-  var B2D_EXECUTABLE = (process.platform === 'win32') ?
-    // Windows.
-    '"C:\\Program Files\\Boot2Docker for Windows\\boot2docker.exe"' +
-    ' --hostip="10.13.37.1"' :
-    // Other.
-    'boot2docker';
+  var B2D_EXECUTABLE = getB2DExecutable();
 
   // Set of logging functions.
   var log = kbox.core.log.make('BOOT2DOCKER');
@@ -70,14 +89,6 @@ module.exports = function(kbox) {
    */
   var getRootDir = function() {
     return kbox.core.deps.get('config').sysProviderRoot;
-  };
-
-  /*
-   * Get root directory for provider.
-   */
-  var getLinuxBinPath = function() {
-    var sysConfRoot = kbox.core.deps.get('config').sysConfRoot;
-    return path.join(sysConfRoot, 'bin');
   };
 
   /*
@@ -159,19 +170,6 @@ module.exports = function(kbox) {
       // See https://github.com/kalabox/kalabox/issues/342
       if (!_.startsWith(process.env.path, gitBin)) {
         kbox.core.env.setEnv('Path', gitBin + process.env.path);
-      }
-    }
-
-    // Set Path environmental variable if we are on linux because we
-    // store the b2d bin in our own spot
-    if (process.platform === 'linux') {
-
-      // Get bin location
-      var b2dBin = getLinuxBinPath();
-
-      // Add the path if we dont already have it
-      if (!_.startsWith(process.env.path, b2dBin)) {
-        kbox.core.env.setEnv('PATH', b2dBin + process.env.path);
       }
     }
 
