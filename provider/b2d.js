@@ -122,6 +122,11 @@ module.exports = function(kbox) {
       shell.exec(cmd, cb);
     })
 
+    // Need to catch findstr null reporting as error
+    .catch(function(err) {
+      // @todo: something more precise here
+    })
+
     // Parse the output
     .then(function(output) {
 
