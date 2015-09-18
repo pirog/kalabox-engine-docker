@@ -16,6 +16,7 @@ module.exports = function(kbox) {
   var fs = require('fs');
   var path = require('path');
   var pp = require('util').inspect;
+  var windosu = require('windosu');
 
   /*
    * NPM modules.
@@ -59,6 +60,109 @@ module.exports = function(kbox) {
    * Base shell command.
    */
   var _sh = kbox.core.deps.get('shell');
+
+  /*
+   * Get the correct windows network adapter
+   */
+  var getWindowsAdapter = function() {
+
+    // Get shell library.
+    var shell = kbox.core.deps.get('shell');
+
+    // Command to run
+    var cmd = [
+      '"C:\\Program Files\\Oracle\\VirtualBox\\VBoxManage.exe"',
+      'showvminfo "Kalabox2" | findstr "Host-only"'
+    ];
+
+    // Get network information from virtual box.
+    return Promise.fromNode(function(cb) {
+      shell.exec(cmd.join(' '), cb);
+    })
+
+    // Parse the output
+    .then(function(output) {
+
+      // Debug log output
+      kbox.core.log.debug('ADAPTER INFO => ' + JSON.stringify(output));
+
+      // Parse output to get network adapter information.
+      var start = output.indexOf('\'');
+      var last = output.lastIndexOf('\'');
+
+      // Get the adapter
+      var adapter = [
+        output.slice(start + 1, last).replace('Ethernet Adapter', 'Network')
+      ];
+
+      // debug
+      kbox.core.log.debug('WINDOWS ADAPTER => ' + JSON.stringify(adapter));
+
+      // Return
+      return adapter;
+    });
+
+  };
+
+  /*
+   * Check the status of our host only adapter
+   */
+  var isHostOnlySet = function() {
+
+    // Get shell library.
+    var shell = kbox.core.deps.get('shell');
+
+    // @todo: Need a stronger check than this eventually
+    var ip = '10.13.37.1';
+    // Command to run
+    var cmd = 'netsh interface ipv4 show addresses | findstr ' + ip;
+
+    // Get network information from virtual box.
+    return Promise.fromNode(function(cb) {
+      shell.exec(cmd, cb);
+    })
+
+    // Parse the output
+    .then(function(output) {
+
+      // Parse output
+      var isSet = _.contains(output, ip);
+
+      // Debug log output
+      kbox.core.log.debug('ADAPTER SET CORRECTLY => ' + JSON.stringify(isSet));
+
+      // Return
+      return isSet;
+    });
+
+  };
+
+  /*
+   * Force set the host only adapter if it is not set correctly
+   */
+  var setHostOnly = function() {
+
+    // Get network information from virtual box.
+    return getWindowsAdapter()
+
+    // Parse the output
+    .then(function(adapter) {
+
+      // @todo: Dont hardcode this
+      var ip = '10.13.37.1';
+      // Command to run
+      var cmd = 'netsh interface ipv4 set address name="' + adapter + '" ' +
+        'static ' + ip + ' store=persistent';
+
+      // Debug log output
+      kbox.core.log.debug('SETTING ADAPTER => ' + JSON.stringify(cmd));
+
+      // @todo: need to figure out how to get this to be blocking
+      windosu.exec(cmd);
+
+    });
+
+  };
 
   /*
    * Run a shell command.
@@ -233,6 +337,16 @@ module.exports = function(kbox) {
             log.info('Sharing folder failed, retrying.', err);
             throw new VError(err, 'Error sharing folders.');
           });
+        });
+      }
+      if (process.platform === 'win32') {
+        // Check if we need to add a DNS command
+        return isHostOnlySet()
+        // If not set then set
+        .then(function(isSet) {
+          if (!isSet) {
+            return setHostOnly();
+          }
         });
       }
     })
