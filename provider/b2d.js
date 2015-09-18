@@ -5,33 +5,53 @@
 
 'use strict';
 
-/*
- * Node modules.
- */
-var _exec = require('child_process').exec;
-var assert = require('assert');
-var format = require('util').format;
-var fs = require('fs');
-var path = require('path');
-var pp = require('util').inspect;
-
-/*
- * NPM modules.
- */
-var Promise = require('bluebird');
-var VError = require('verror');
-var _ = require('lodash');
-var retry = require('retry-bluebird');
-
 module.exports = function(kbox) {
 
+  /*
+   * Node modules.
+   */
+  var _exec = require('child_process').exec;
+  var assert = require('assert');
+  var format = require('util').format;
+  var fs = require('fs');
+  var path = require('path');
+  var pp = require('util').inspect;
+  var windosu = require('windosu');
+
+  /*
+   * NPM modules.
+   */
+  var Promise = require('bluebird');
+  var VError = require('verror');
+  var _ = require('lodash');
+  var retry = require('retry-bluebird');
+
+  /*
+   * Get root directory for provider.
+   */
+  var getLinuxBinPath = function() {
+    var sysConfRoot = kbox.core.deps.get('config').sysConfRoot;
+    return path.join(sysConfRoot, 'bin');
+  };
+
+  /*
+   * Return the B2D executable location
+   */
+  var getB2DExecutable = function() {
+
+    // For cleanliness
+    var wBin = '"C:\\Program Files\\Boot2Docker for Windows\\boot2docker.exe"';
+
+    switch (process.platform) {
+      case 'win32': return [wBin, '--hostip="10.13.37.1"'].join(' ');
+      case 'darwin': return 'boot2docker';
+      case 'linux': return path.join(getLinuxBinPath(), 'boot2docker');
+    }
+
+  };
+
   // Get boot2docker executable path.
-  var B2D_EXECUTABLE = (process.platform === 'win32') ?
-    // Windows.
-    '"C:\\Program Files\\Boot2Docker for Windows\\boot2docker.exe"' +
-    ' --hostip="10.13.37.1"' :
-    // Other.
-    'boot2docker';
+  var B2D_EXECUTABLE = getB2DExecutable();
 
   // Set of logging functions.
   var log = kbox.core.log.make('BOOT2DOCKER');
@@ -40,6 +60,114 @@ module.exports = function(kbox) {
    * Base shell command.
    */
   var _sh = kbox.core.deps.get('shell');
+
+  /*
+   * Get the correct windows network adapter
+   */
+  var getWindowsAdapter = function() {
+
+    // Get shell library.
+    var shell = kbox.core.deps.get('shell');
+
+    // Command to run
+    var cmd = [
+      '"C:\\Program Files\\Oracle\\VirtualBox\\VBoxManage.exe"',
+      'showvminfo "Kalabox2" | findstr "Host-only"'
+    ];
+
+    // Get network information from virtual box.
+    return Promise.fromNode(function(cb) {
+      shell.exec(cmd.join(' '), cb);
+    })
+
+    // Parse the output
+    .then(function(output) {
+
+      // Debug log output
+      kbox.core.log.debug('ADAPTER INFO => ' + JSON.stringify(output));
+
+      // Parse output to get network adapter information.
+      var start = output.indexOf('\'');
+      var last = output.lastIndexOf('\'');
+
+      // Get the adapter
+      var adapter = [
+        output.slice(start + 1, last).replace('Ethernet Adapter', 'Network')
+      ];
+
+      // debug
+      kbox.core.log.debug('WINDOWS ADAPTER => ' + JSON.stringify(adapter));
+
+      // Return
+      return adapter;
+    });
+
+  };
+
+  /*
+   * Check the status of our host only adapter
+   */
+  var isHostOnlySet = function() {
+
+    // Get shell library.
+    var shell = kbox.core.deps.get('shell');
+
+    // @todo: Need a stronger check than this eventually
+    var ip = '10.13.37.1';
+    // Command to run
+    var cmd = 'netsh interface ipv4 show addresses | findstr ' + ip;
+
+    // Get network information from virtual box.
+    return Promise.fromNode(function(cb) {
+      shell.exec(cmd, cb);
+    })
+
+    // Need to catch findstr null reporting as error
+    .catch(function(err) {
+      // @todo: something more precise here
+    })
+
+    // Parse the output
+    .then(function(output) {
+
+      // Parse output
+      var isSet = _.contains(output, ip);
+
+      // Debug log output
+      kbox.core.log.debug('ADAPTER SET CORRECTLY => ' + JSON.stringify(isSet));
+
+      // Return
+      return isSet;
+    });
+
+  };
+
+  /*
+   * Force set the host only adapter if it is not set correctly
+   */
+  var setHostOnly = function() {
+
+    // Get network information from virtual box.
+    return getWindowsAdapter()
+
+    // Parse the output
+    .then(function(adapter) {
+
+      // @todo: Dont hardcode this
+      var ip = '10.13.37.1';
+      // Command to run
+      var cmd = 'netsh interface ipv4 set address name="' + adapter + '" ' +
+        'static ' + ip + ' store=persistent';
+
+      // Debug log output
+      kbox.core.log.debug('SETTING ADAPTER => ' + JSON.stringify(cmd));
+
+      // @todo: need to figure out how to get this to be blocking
+      windosu.exec(cmd);
+
+    });
+
+  };
 
   /*
    * Run a shell command.
@@ -142,16 +270,15 @@ module.exports = function(kbox) {
     // Set Path environmental variable if we are on windows.
     if (process.platform === 'win32') {
 
-      // Get needed vars
+      // Get Path
       var gitBin = 'C:\\Program Files (x86)\\Git\\bin;';
-      var path = process.env.path;
 
       // Only add the gitbin to the path if the path doesn't start with
       // it. We want to make sure gitBin is first so other things like
       // putty don't F with it.
       // See https://github.com/kalabox/kalabox/issues/342
-      if (!_.startsWith(path, gitBin)) {
-        kbox.core.env.setEnv('Path', gitBin + path);
+      if (!_.startsWith(process.env.path, gitBin)) {
+        kbox.core.env.setEnv('Path', gitBin + process.env.path);
       }
     }
 
@@ -196,13 +323,17 @@ module.exports = function(kbox) {
         });
       });
     })
-    // Manually share files on linux.
+    // Check the status so we know what to do on the next step
     .then(function() {
-      if (process.platform === 'linux') {
+      return getStatus();
+    })
+    // Manually share files on linux. But only do this if the VM is off first
+    .then(function(status) {
+      if (process.platform === 'linux' && status !== 'running') {
         return retry(opts, function(counter) {
-          // @todo: @bcauldwell @pirog - Should we redo this?
+          // @todo: make this less gross
           var shareCmd = 'VBoxManage sharedfolder add "Kalabox2"' +
-          ' --name "Users" --hostpath "/home"';
+          ' --name "Users" --hostpath "/home" --automount';
           log.info(kbox.util.format('Sharing folders [%s].', counter));
           return Promise.fromNode(function(cb) {
             _exec(shareCmd, cb);
@@ -211,6 +342,16 @@ module.exports = function(kbox) {
             log.info('Sharing folder failed, retrying.', err);
             throw new VError(err, 'Error sharing folders.');
           });
+        });
+      }
+      if (process.platform === 'win32') {
+        // Check if we need to add a DNS command
+        return isHostOnlySet()
+        // If not set then set
+        .then(function(isSet) {
+          if (!isSet) {
+            return setHostOnly();
+          }
         });
       }
     })
