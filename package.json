@@ -28,7 +28,7 @@
     "memorystream": "^0.3.1",
     "retry-bluebird": "^0.1.1",
     "verror": "^1.6.0",
-    "windosu": "^0.1.3"
+    "windosu": "https://github.com/kalabox/windosu/tarball/master"
   },
   "devDependencies": {
     "chai": "^1.9.2",
