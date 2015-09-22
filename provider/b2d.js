@@ -310,8 +310,10 @@ module.exports = function(kbox) {
         log.info(kbox.util.format('Initializing boot2docker [%s].', counter));
         // Build command.
         var initCmd = ['init'];
-        // Add disksize option to command.
-        initCmd.unshift(kbox.util.format('--disksize=%s', opts.disksize));
+        // Add disksize option to command.'
+        if (opts.disksize) {
+          initCmd.unshift(kbox.util.format('--disksize=%s', opts.disksize));
+        }
         // Run provider command.
         return shProvider(initCmd)
         // Wrap errors.
