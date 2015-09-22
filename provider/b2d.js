@@ -592,19 +592,24 @@ module.exports = function(kbox) {
     .then(function(profile) {
 
       // Get upper and lower IP address octets from profile.
-      var upperIpOctets = _.trim(profile.UpperIP, '"').split('.');
-      var lowerIpOctets = _.trim(profile.LowerIP, '"').split('.');
+      var upperIp = _.trim(profile.UpperIP, '"').split('.');
+      var lowerIp = _.trim(profile.LowerIP, '"').split('.');
 
       // Assert the start of upper IP and lower IP are the same.
-      assert(_.isEqual(_.take(upperIpOctets, 3), _.take(lowerIpOctets, 3)));
+      assert(_.isEqual(_.take(upperIp, 3), _.take(lowerIp, 3)));
+
+      // Transform to integers and add one to the upper to accomodate how
+      // _.range() works
+      var bottomIp = parseInt(_.last(lowerIp));
+      var topIp = parseInt(_.last(upperIp)) + 1;
 
       // Get range of last octets for what will be a full list of possible ips.
-      var lastOctets = _.range(_.last(lowerIpOctets), _.last(upperIpOctets));
+      var lastOctets = _.range(bottomIp, topIp);
 
       // Map range of last octets to IP addresses.
       return _.map(lastOctets, function(lastOctet) {
         // Get first 3 octets from upper IP address.
-        var octets = _.take(upperIpOctets, 3);
+        var octets = _.take(upperIp, 3);
         // Add last octet.
         octets.push(lastOctet);
         // Format octets to a IP string.
