@@ -16,7 +16,6 @@ module.exports = function(kbox) {
   var fs = require('fs');
   var path = require('path');
   var pp = require('util').inspect;
-  var windosu = require('windosu');
 
   /*
    * NPM modules.
@@ -162,8 +161,8 @@ module.exports = function(kbox) {
       // Debug log output
       kbox.core.log.debug('SETTING ADAPTER => ' + JSON.stringify(cmd));
 
-      // @todo: need to figure out how to get this to be blocking
-      windosu.exec(cmd);
+      // Run an elevated command for this
+      return kbox.util.shell.execElevated(cmd);
 
     });
 
