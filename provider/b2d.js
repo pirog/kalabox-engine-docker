@@ -147,8 +147,6 @@ module.exports = function(kbox) {
     // Get network information from virtual box.
     .then(function(adapter) {
 
-      console.log(adapter);
-
       var adp = adapter;
 
       // Command to run
