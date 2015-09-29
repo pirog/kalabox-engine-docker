@@ -42,7 +42,7 @@ module.exports = function(kbox) {
     var wBin = '"C:\\Program Files\\Boot2Docker for Windows\\boot2docker.exe"';
 
     switch (process.platform) {
-      case 'win32': return [wBin, '--hostip="10.13.37.1"'].join(' ');
+      case 'win32': return wBin;
       case 'darwin': return 'boot2docker';
       case 'linux': return path.join(getLinuxBinPath(), 'boot2docker');
     }
@@ -55,10 +55,37 @@ module.exports = function(kbox) {
   // Set of logging functions.
   var log = kbox.core.log.make('BOOT2DOCKER');
 
+  // Set host-only "constant"
+  var KALABOX_HOST_ONLY = '10.13.37.1';
+
   /*
    * Base shell command.
    */
   var _sh = kbox.core.deps.get('shell');
+
+  /*
+   * Get dynamic flags
+   */
+  var getFlags = function() {
+
+    // Start up our options
+    var options = [];
+
+    // Use a custom SSH key to avoid SSH mixup with other B2D intances
+    var sshPath = path.join(kbox.core.deps.get('config').home, '.ssh');
+    var sshKey = 'boot2docker.kalabox.id_rsa';
+    options.push('--sshkey="' + path.join(sshPath, sshKey) + '"');
+
+    // Try to explicitly set hostIP on win32
+    // @todo: we might not need this since we check and correct later
+    if (process.platform === 'win32') {
+      options.push('--hostip="' + KALABOX_HOST_ONLY + '"');
+    }
+
+    // Concat and return
+    return options.join(' ');
+
+  };
 
   /*
    * Get the correct windows network adapter
@@ -112,7 +139,7 @@ module.exports = function(kbox) {
     var shell = kbox.core.deps.get('shell');
 
     // @todo: Need a stronger check than this eventually
-    var ip = '10.13.37.1';
+    var ip = KALABOX_HOST_ONLY;
     // Command to run
     var cmd = 'netsh interface ipv4 show addresses | findstr ' + ip;
 
@@ -153,7 +180,7 @@ module.exports = function(kbox) {
     .then(function(adapter) {
 
       // @todo: Dont hardcode this
-      var ip = '10.13.37.1';
+      var ip = KALABOX_HOST_ONLY;
       // Command to run
       var cmd = 'netsh interface ipv4 set address name="' + adapter + '" ' +
         'static ' + ip + ' store=persistent';
@@ -282,7 +309,7 @@ module.exports = function(kbox) {
     }
 
     // Run a provider command in a shell.
-    return sh([B2D_EXECUTABLE].concat(cmd));
+    return sh([B2D_EXECUTABLE].concat(getFlags()).concat(cmd));
 
   };
 
