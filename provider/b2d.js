@@ -138,7 +138,7 @@ module.exports = function(kbox) {
     // Get shell library.
     var shell = kbox.core.deps.get('shell');
 
-    // @todo: Need a stronger check than this eventually
+    // Grab the default HOA
     var ip = KALABOX_HOST_ONLY;
 
     // Grab the host only adapter so we can be SUPER PRECISE!
