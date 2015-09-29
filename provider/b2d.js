@@ -42,7 +42,7 @@ module.exports = function(kbox) {
     var wBin = '"C:\\Program Files\\Boot2Docker for Windows\\boot2docker.exe"';
 
     switch (process.platform) {
-      case 'win32': return [wBin, '--hostip="10.13.37.1"'].join(' ');
+      case 'win32': return wBin;
       case 'darwin': return 'boot2docker';
       case 'linux': return path.join(getLinuxBinPath(), 'boot2docker');
     }
@@ -55,10 +55,37 @@ module.exports = function(kbox) {
   // Set of logging functions.
   var log = kbox.core.log.make('BOOT2DOCKER');
 
+  // Set host-only "constant"
+  var KALABOX_HOST_ONLY = '10.13.37.1';
+
   /*
    * Base shell command.
    */
   var _sh = kbox.core.deps.get('shell');
+
+  /*
+   * Get dynamic flags
+   */
+  var getFlags = function() {
+
+    // Start up our options
+    var options = [];
+
+    // Use a custom SSH key to avoid SSH mixup with other B2D intances
+    var sshPath = path.join(kbox.core.deps.get('config').home, '.ssh');
+    var sshKey = 'boot2docker.kalabox.id_rsa';
+    options.push('--sshkey="' + path.join(sshPath, sshKey) + '"');
+
+    // Try to explicitly set hostIP on win32
+    // @todo: we might not need this since we check and correct later
+    if (process.platform === 'win32') {
+      options.push('--hostip="' + KALABOX_HOST_ONLY + '"');
+    }
+
+    // Concat and return
+    return options.join(' ');
+
+  };
 
   /*
    * Get the correct windows network adapter
@@ -111,26 +138,56 @@ module.exports = function(kbox) {
     // Get shell library.
     var shell = kbox.core.deps.get('shell');
 
-    // @todo: Need a stronger check than this eventually
-    var ip = '10.13.37.1';
-    // Command to run
-    var cmd = 'netsh interface ipv4 show addresses | findstr ' + ip;
+    // Grab the default HOA
+    var ip = KALABOX_HOST_ONLY;
+
+    // Grab the host only adapter so we can be SUPER PRECISE!
+    return getWindowsAdapter()
 
     // Get network information from virtual box.
-    return Promise.fromNode(function(cb) {
-      shell.exec(cmd, cb);
-    })
+    .then(function(adapter) {
 
-    // Need to catch findstr null reporting as error
-    .catch(function(err) {
-      // @todo: something more precise here
+      var adp = adapter;
+
+      // Command to run
+      var cmd = 'netsh interface ipv4 show addresses';
+
+      // Execute promisified shell
+      return Promise.fromNode(function(cb) {
+        shell.exec(cmd, cb);
+      })
+
+      // Need to catch findstr null reporting as error
+      .catch(function(err) {
+        // @todo: something more precise here
+      })
+
+      .then(function(output) {
+        // Truncate the string for just data on what we need
+        // This elminates the possibility that another adapter has our
+        // setup. Although, to be fair, if another adapter does then
+        // we are probably SOL anyway.
+
+        // Trim the left
+        var leftTrim = 'Configuration for interface "' + adp + '"';
+        var truncLeft = output.indexOf(leftTrim);
+        var left = output.slice(truncLeft);
+
+        // Trim the right
+        var rightTrim = 'Subnet Prefix';
+        var truncRight = left.indexOf(rightTrim);
+
+        // Return precise
+        return left.slice(0, truncRight);
+      });
+
     })
 
     // Parse the output
     .then(function(output) {
 
       // Parse output
-      var isSet = _.contains(output, ip);
+      var isSet = _.includes(output, ip);
 
       // Debug log output
       kbox.core.log.debug('ADAPTER SET CORRECTLY => ' + JSON.stringify(isSet));
@@ -153,7 +210,7 @@ module.exports = function(kbox) {
     .then(function(adapter) {
 
       // @todo: Dont hardcode this
-      var ip = '10.13.37.1';
+      var ip = KALABOX_HOST_ONLY;
       // Command to run
       var cmd = 'netsh interface ipv4 set address name="' + adapter + '" ' +
         'static ' + ip + ' store=persistent';
@@ -282,7 +339,7 @@ module.exports = function(kbox) {
     }
 
     // Run a provider command in a shell.
-    return sh([B2D_EXECUTABLE].concat(cmd));
+    return sh([B2D_EXECUTABLE].concat(getFlags()).concat(cmd));
 
   };
 
