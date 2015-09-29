@@ -140,24 +140,56 @@ module.exports = function(kbox) {
 
     // @todo: Need a stronger check than this eventually
     var ip = KALABOX_HOST_ONLY;
-    // Command to run
-    var cmd = 'netsh interface ipv4 show addresses | findstr ' + ip;
+
+    // Grab the host only adapter so we can be SUPER PRECISE!
+    return getWindowsAdapter()
 
     // Get network information from virtual box.
-    return Promise.fromNode(function(cb) {
-      shell.exec(cmd, cb);
-    })
+    .then(function(adapter) {
 
-    // Need to catch findstr null reporting as error
-    .catch(function(err) {
-      // @todo: something more precise here
+      console.log(adapter);
+
+      var adp = adapter;
+
+      // Command to run
+      var cmd = 'netsh interface ipv4 show addresses';
+
+      // Execute promisified shell
+      return Promise.fromNode(function(cb) {
+        shell.exec(cmd, cb);
+      })
+
+      // Need to catch findstr null reporting as error
+      .catch(function(err) {
+        // @todo: something more precise here
+      })
+
+      .then(function(output) {
+        // Truncate the string for just data on what we need
+        // This elminates the possibility that another adapter has our
+        // setup. Although, to be fair, if another adapter does then
+        // we are probably SOL anyway.
+
+        // Trim the left
+        var leftTrim = 'Configuration for interface "' + adp + '"';
+        var truncLeft = output.indexOf(leftTrim);
+        var left = output.slice(truncLeft);
+
+        // Trim the right
+        var rightTrim = 'Subnet Prefix';
+        var truncRight = left.indexOf(rightTrim);
+
+        // Return precise
+        return left.slice(0, truncRight);
+      });
+
     })
 
     // Parse the output
     .then(function(output) {
 
       // Parse output
-      var isSet = _.contains(output, ip);
+      var isSet = _.includes(output, ip);
 
       // Debug log output
       kbox.core.log.debug('ADAPTER SET CORRECTLY => ' + JSON.stringify(isSet));
