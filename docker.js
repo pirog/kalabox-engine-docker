@@ -474,6 +474,7 @@ module.exports = function(kbox) {
     // Default options.
     opts.tty = opts.tty || false;
     opts.cmd = opts.cmd || ['bash'];
+    opts.collectStdout = opts.collectStdout || false;
 
     // Exec creation options.
     var createOpts = {
@@ -539,12 +540,17 @@ module.exports = function(kbox) {
           result.stderr = new MemoryStream();
           result.stdout.setEncoding('utf8');
           result.stderr.setEncoding('utf8');
-          result.stream = stream;
           container.modem.demuxStream(stream, result.stdout, result.stderr);
           // Function to wait on.
           result.wait = function() {
             // Start a new promise.
             return new Promise(function(fulfill, reject) {
+              var buffer = opts.collectStdout ? '' : undefined;
+              result.stdout.on('data', function(data) {
+                if (opts.collectStdout) {
+                  buffer += data;
+                }
+              });
               // When the stream ends we will check the results of our exec.
               stream.on('end', function() {
                 // Inspect the exec.
@@ -557,7 +563,7 @@ module.exports = function(kbox) {
                     reject(new Error('Exec is still running: unexpected!'));
                   } else if (data.ExitCode === 0) {
                     // Success!
-                    fulfill();
+                    fulfill(buffer);
                   } else {
                     // We have a non-zero exit code, grab stderr and report.
                     var msg = 'Non-zero exit code: ' + data.ExitCode;
@@ -615,12 +621,11 @@ module.exports = function(kbox) {
   /*
    * Run a query against a container.
    */
-  var query = function(cid, cmd) {
+  var query = function(cid, cmd, opts) {
 
     // Exec options.
-    var opts = {
-      cmd: cmd
-    };
+    opts = opts || {};
+    opts.cmd = cmd;
 
     return exec(cid, opts);
 
@@ -632,26 +637,10 @@ module.exports = function(kbox) {
   var queryData = function(cid, cmd) {
 
     // Query container.
-    return query(cid, cmd)
+    return query(cid, cmd, {collectStdout: true})
     .then(function(res) {
-      // Collect stdout data.
-      var buffer = '';
-      res.stdout.on('data', function(data) {
-        buffer += data;
-      });
-      // Wait.
-      return Promise.all([
-        // Wait for stream to end.
-        Promise.fromNode(function(cb) {
-          res.stream.on('end', cb);
-        }),
-        // Wait for container to finish.
-        res.wait()
-      ])
-      // Return buffer.
-      .then(function() {
-        return buffer;
-      });
+      // Wait for container to finish.
+      return res.wait();
     });
 
   };
