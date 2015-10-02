@@ -633,11 +633,16 @@ module.exports = function(kbox) {
     // Query container.
     return query(cid, cmd)
     .then(function(res) {
+      // Collect stdout data.
+      var buffer = '';
+      res.stdout.on('data', function(data) {
+        buffer += data;
+      });
       // Wait for container to finish.
       return res.wait()
       // Return contents of stdout.
       .then(function() {
-        return res.stdout._readableState.buffer.toString();
+        return buffer;
       });
     });
 
