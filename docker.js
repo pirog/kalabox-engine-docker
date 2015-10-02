@@ -539,6 +539,7 @@ module.exports = function(kbox) {
           result.stderr = new MemoryStream();
           result.stdout.setEncoding('utf8');
           result.stderr.setEncoding('utf8');
+          result.stream = stream;
           container.modem.demuxStream(stream, result.stdout, result.stderr);
           // Function to wait on.
           result.wait = function() {
@@ -638,9 +639,16 @@ module.exports = function(kbox) {
       res.stdout.on('data', function(data) {
         buffer += data;
       });
-      // Wait for container to finish.
-      return res.wait()
-      // Return contents of stdout.
+      // Wait.
+      return Promise.all([
+        // Wait for stream to end.
+        Promise.fromNode(function(cb) {
+          res.stream.on('end', cb);
+        }),
+        // Wait for container to finish.
+        res.wait()
+      ])
+      // Return buffer.
       .then(function() {
         return buffer;
       });
