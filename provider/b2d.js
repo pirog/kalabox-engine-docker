@@ -55,8 +55,11 @@ module.exports = function(kbox) {
   // Set of logging functions.
   var log = kbox.core.log.make('BOOT2DOCKER');
 
-  // Set host-only "constant"
+  // Define host-only "constant"
   var KALABOX_HOST_ONLY = '10.13.37.1';
+
+  // Define kalabox SSH Key
+  var KALABOX_SSH_KEY = 'boot2docker.kalabox.id_rsa';
 
   /*
    * Base shell command.
@@ -73,8 +76,7 @@ module.exports = function(kbox) {
 
     // Use a custom SSH key to avoid SSH mixup with other B2D intances
     var sshPath = path.join(kbox.core.deps.get('config').home, '.ssh');
-    var sshKey = 'boot2docker.kalabox.id_rsa';
-    options.push('--sshkey="' + path.join(sshPath, sshKey) + '"');
+    options.push('--sshkey="' + path.join(sshPath, KALABOX_SSH_KEY) + '"');
 
     // Try to explicitly set hostIP on win32
     // @todo: we might not need this since we check and correct later
@@ -705,6 +707,7 @@ module.exports = function(kbox) {
     isDown: isDown,
     isInstalled: isInstalled,
     isUp: isUp,
+    sshKey: KALABOX_SSH_KEY,
     name: 'boot2docker',
     path2Bind4U: path2Bind4U,
     up: up
