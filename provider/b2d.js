@@ -445,7 +445,7 @@ module.exports = function(kbox) {
 
     // Default settings for max retries.
     opts = opts || {};
-    opts.max = opts.max || opts.maxRetries || 3;
+    opts.max = opts.max || opts.maxRetries || 5;
 
     // Emit pre down event.
     return Promise.try(kbox.core.events.emit, 'pre-down')
@@ -561,57 +561,57 @@ module.exports = function(kbox) {
   };
 
   /*
+   * Check to see if we have a Kalabox2 VM
+   */
+  var vmExists = function() {
+
+    // See if there is any info
+    return shProvider(['info'])
+
+    // if there is output then we are probably good
+    // @todo: we can do a stronger check here
+    .then(function(output) {
+      if (output) {
+        return true;
+      }
+    })
+
+    // If there is an error then we probably need to run the install
+    .catch(function(err) {
+      return false;
+    });
+
+  };
+
+  /*
    * Return true if boot2docker is installed.
+   * @todo: installer should set a uuid file from boot2docker info and then
+   * run 'boot2docker info' and compare the UUID key with the uuid file.
    */
   var isInstalled = function() {
-
-    // @todo: installer should set a uuid file from boot2docker info and then
-    // run 'boot2docker info' and compare the UUID key with the uuid file.
-    // @todo: on MYSYSGIT which is just a bash script for 'type -p $1' there is
-    // probably a cross platform way to do this but for now:
-
-    if (process.platform === 'win32') {
-
-      // @todo: @bcauldwell - This is jank as shit.
-      var filepath = _.trim(_.head(B2D_EXECUTABLE.split(' --')), '"');
-
-      // Try to read the boot2docker executable.
-      return Promise.fromNode(function(cb) {
-        fs.open(filepath, 'r', cb);
-      })
-      // Read was a success so return true.
-      .then(function() {
-        return true;
-      })
-      // Error.
-      .catch(function(err) {
-        if (err.code === 'ENOENT') {
-          // File does not exist so return false.
-          return false;
-        } else {
-          // Unexpected error, so wrap and throw it.
-          throw new VError(err, 'Error trying to read "%s".', filepath);
-        }
-      });
-    } else {
-
-      // Run which command to find location of boot2docker.
-      return sh(['which', B2D_EXECUTABLE])
-      .then(function(output) {
-        if (output) {
-          // If a location was return, return value of hasProfile.
-          return hasProfile();
-        } else {
-          // Boot2docker does not exist so return false.
-          return false;
-        }
-      })
-      // Which returned an error, this should mean it does not exist.
-      .catch(function(err) {
+    // Grab correct path checking tool
+    // @todo: handle alternate shells
+    var which = (process.platform === 'win32') ? 'where' : 'which';
+    // Run command to find location of boot2docker.
+    return sh([which, path.basename(B2D_EXECUTABLE)])
+    .then(function(output) {
+      if (output) {
+        // If a location was return, return value of hasProfile.
+        return hasProfile()
+        // Do a final check to see if a Kalabox2 VM exists
+        .then(function(hasProfile) {
+          return hasProfile && vmExists();
+        });
+      }
+      else {
+        // Boot2docker does not exist so return false.
         return false;
-      });
-
-    }
+      }
+    })
+    // Which returned an error, this should mean it does not exist.
+    .catch(function(err) {
+      return false;
+    });
 
   };
 
