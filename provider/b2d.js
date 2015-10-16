@@ -49,14 +49,28 @@ module.exports = function(kbox) {
 
   };
 
-  // Get boot2docker executable path.
+  /*
+   * Return the SSH executable location
+   */
+  var getSSHExecutable = function() {
+
+    // For cleanliness
+    var wBin = '"C:\\Program Files (x86)\\Git\\bin\\ssh.exe"';
+
+    return process.platform === 'win32' ? wBin : 'ssh';
+
+  };
+
+  // Get boot2docker and ssh executable path.
   var B2D_EXECUTABLE = getB2DExecutable();
+  var SSH_EXECUTABLE = getSSHExecutable();
 
   // Set of logging functions.
   var log = kbox.core.log.make('BOOT2DOCKER');
 
-  // Define host-only "constant"
+  // Define some ip constants
   var KALABOX_HOST_ONLY = '10.13.37.1';
+  var KALABOX_DEFAULT_IP = '10.13.37.42';
 
   // Define kalabox SSH Key
   var KALABOX_SSH_KEY = 'boot2docker.kalabox.id_rsa';
@@ -83,6 +97,9 @@ module.exports = function(kbox) {
     if (process.platform === 'win32') {
       options.push('--hostip="' + KALABOX_HOST_ONLY + '"');
     }
+
+    // Limit number of retries to increase performance of non-HOSTIP Vms
+    options.push('--retries=25');
 
     // Concat and return
     return options.join(' ');
@@ -318,9 +335,9 @@ module.exports = function(kbox) {
   });
 
   /*
-   * Run a provider command in a shell.
+   * Set B2D Env
    */
-  var shProvider = function(cmd) {
+  var setB2DEnv = function() {
 
     // Set the provider root directory as a environmental variable.
     setRootDirEnv();
@@ -339,10 +356,73 @@ module.exports = function(kbox) {
         kbox.core.env.setEnv('Path', gitBin + process.env.path);
       }
     }
+  };
+
+  /*
+   * Run a provider command in a shell.
+   */
+  var shProvider = function(cmd) {
+
+    // Set the B2D env
+    setB2DEnv();
 
     // Run a provider command in a shell.
     return sh([B2D_EXECUTABLE].concat(getFlags()).concat(cmd));
 
+  };
+
+  /*
+   * Run a command inside the provider
+   */
+  var shProviderSSH = function(cmd) {
+
+    // Set the B2D env
+    setB2DEnv();
+
+    /*
+     * Return ssh options
+     */
+    var getSSHOptions = function() {
+
+      // Get SSHkey Path
+      var sshPath = path.join(kbox.core.deps.get('config').home, '.ssh');
+
+      // Needed SSH opts
+      var opts = [
+        '-o IdentitiesOnly=yes',
+        '-o StrictHostKeyChecking=no',
+        '-o UserKnownHostsFile=/dev/null',
+        '-o LogLevel=quiet',
+        '-p 2022',
+        '-i ' + path.join(sshPath, KALABOX_SSH_KEY),
+        'docker@localhost'
+      ];
+
+      // concat and return all options
+      return opts.join(' ');
+    };
+
+    // Run a provider command in a shell.
+    return sh([SSH_EXECUTABLE].concat(getSSHOptions()).concat(cmd));
+
+  };
+
+  /*
+   * Get Manual set IP command
+   */
+  var setProviderIPCmd = function() {
+    //@todo: do we need to do this on eth0 as well?
+    return [
+      'sudo',
+      'ifconfig',
+      'eth1',
+      KALABOX_DEFAULT_IP,
+      'netmask',
+      '255.255.255.0',
+      'broadcast',
+      '10.13.37.255',
+      'up'
+    ].join(' ');
   };
 
   /*
@@ -424,6 +504,23 @@ module.exports = function(kbox) {
         .catch(function(err) {
           log.info('Bringing up boot2docker failed, retrying.', err);
           throw new VError(err, 'Error bringing boot2docker up.');
+        })
+        .then(function(output) {
+          // If B2D reports no IP found we will try to set it manually
+          // @todo: tighter check here
+          if (_.includes(output, 'No IP') || _.includes(output, 'Error')) {
+
+            // Log falure
+            log.info('Boot2docker failed to provide an IP. Setting manually.');
+
+            // Set manually
+            return shProviderSSH(setProviderIPCmd())
+
+            // Retry up so we can grab the correct adapter
+            .then(function() {
+              return up();
+            });
+          }
         });
       });
     })
@@ -623,6 +720,7 @@ module.exports = function(kbox) {
     // Get ip address of boot2docker.
     return getIp()
     .then(function(ip) {
+
       // Build docker config.
       var config = {
         protocol: 'http',
