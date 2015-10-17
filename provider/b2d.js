@@ -518,7 +518,7 @@ module.exports = function(kbox) {
 
             // Retry up so we can grab the correct adapter
             .then(function() {
-              return up();
+              return up({max:3});
             });
           }
         });
@@ -596,7 +596,25 @@ module.exports = function(kbox) {
     })
     // Remove endline.
     .then(function(ip) {
-      return _.trim(ip, '\n');
+
+      // Trim the IP to remove newline cruft
+      var host = _.trim(ip, '\n');
+
+      // Check to see if we somehow landed on the wrong IP
+      var ipSegs = host.split('.');
+      if (ipSegs[3] !== '42') {
+        // Try to manually set to correct and then try to grab IP again
+        return shProviderSSH(setProviderIPCmd())
+        .then(function() {
+          return up({max:3});
+        })
+        .then(function() {
+          return getIp();
+        });
+      }
+      else {
+        return host;
+      }
     });
 
   };
