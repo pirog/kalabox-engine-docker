@@ -99,7 +99,7 @@ module.exports = function(kbox) {
     }
 
     // Limit number of retries to increase performance of non-HOSTIP Vms
-    options.push('--retries=25');
+    options.push('--retries=50');
 
     // Concat and return
     return options.join(' ');
@@ -353,7 +353,19 @@ module.exports = function(kbox) {
       // putty don't F with it.
       // See https://github.com/kalabox/kalabox/issues/342
       if (!_.startsWith(process.env.path, gitBin)) {
-        kbox.core.env.setEnv('Path', gitBin + process.env.path);
+        kbox.core.env.setEnv('Path', [gitBin, process.env.path].join(':'));
+      }
+    }
+
+    // Set path on linux so we can grab our isolated b2d bin
+    else if (process.platform === 'linux') {
+
+      // Get kb2 bin path
+      var binPath = path.join(kbox.core.deps.get('config').sysConfRoot, 'bin');
+
+      // add our special bin dir into the PATH
+      if (!_.startsWith(process.env.PATH, binPath)) {
+        kbox.core.env.setEnv('PATH', [binPath, process.env.PATH].join(':'));
       }
     }
   };
