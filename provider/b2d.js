@@ -716,6 +716,10 @@ module.exports = function(kbox) {
    * run 'boot2docker info' and compare the UUID key with the uuid file.
    */
   var isInstalled = function() {
+
+    // set the b2d env
+    setB2DEnv();
+
     // Grab correct path checking tool
     // @todo: handle alternate shells
     var which = (process.platform === 'win32') ? 'where' : 'which';
