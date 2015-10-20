@@ -346,14 +346,14 @@ module.exports = function(kbox) {
     if (process.platform === 'win32') {
 
       // Get Path
-      var gitBin = 'C:\\Program Files (x86)\\Git\\bin;';
+      var gitBin = 'C:\\Program Files (x86)\\Git\\bin';
 
       // Only add the gitbin to the path if the path doesn't start with
       // it. We want to make sure gitBin is first so other things like
       // putty don't F with it.
       // See https://github.com/kalabox/kalabox/issues/342
       if (!_.startsWith(process.env.path, gitBin)) {
-        kbox.core.env.setEnv('Path', [gitBin, process.env.path].join(':'));
+        kbox.core.env.setEnv('Path', [gitBin, process.env.Path].join(';'));
       }
     }
 
