@@ -26,11 +26,20 @@ module.exports = function(kbox) {
   var retry = require('retry-bluebird');
 
   /*
-   * Get root directory for provider.
+   * Get directory for provider executable.
    */
-  var getLinuxBinPath = function() {
+  var getB2DBinPath = function() {
+
+    // Get sysconf
     var sysConfRoot = kbox.core.deps.get('config').sysConfRoot;
-    return path.join(sysConfRoot, 'bin');
+
+    // Return path based on platform
+    switch (process.platform) {
+      case 'win32': return 'C:\\Program Files\\Boot2Docker for Windows';
+      case 'darwin': return path.join('usr', 'local', 'bin');
+      case 'linux': return path.join(sysConfRoot, 'bin');
+    }
+
   };
 
   /*
@@ -38,13 +47,14 @@ module.exports = function(kbox) {
    */
   var getB2DExecutable = function() {
 
-    // For cleanliness
-    var wBin = '"C:\\Program Files\\Boot2Docker for Windows\\boot2docker.exe"';
+    // Get b2d path
+    var b2dPath = getB2DBinPath();
 
+    // Return exec based on path
     switch (process.platform) {
-      case 'win32': return wBin;
-      case 'darwin': return 'boot2docker';
-      case 'linux': return path.join(getLinuxBinPath(), 'boot2docker');
+      case 'win32': return '"' + path.join(b2dPath, 'boot2docker.exe') + '"';
+      case 'darwin': return path.join(b2dPath, 'boot2docker');
+      case 'linux': return path.join(b2dPath, 'boot2docker');
     }
 
   };
@@ -342,7 +352,8 @@ module.exports = function(kbox) {
     // Set the provider root directory as a environmental variable.
     setRootDirEnv();
 
-    // Set Path environmental variable if we are on windows.
+    // Set Path environmental variable if we are on windows so we get access
+    // to things like ssh.exe
     if (process.platform === 'win32') {
 
       // Get Path
@@ -357,17 +368,16 @@ module.exports = function(kbox) {
       }
     }
 
-    // Set path on linux so we can grab our isolated b2d bin
-    else if (process.platform === 'linux') {
-
-      // Get kb2 bin path
-      var binPath = path.join(kbox.core.deps.get('config').sysConfRoot, 'bin');
-
-      // add our special bin dir into the PATH
-      if (!_.startsWith(process.env.PATH, binPath)) {
-        kbox.core.env.setEnv('PATH', [binPath, process.env.PATH].join(':'));
-      }
+    // Add B2D executable path to path to handle weird situations where
+    // the user may not have B2D in their path
+    var pathString = (process.platform === 'win32') ? 'Path' : 'PATH';
+    var pathSep = (process.platform === 'win32') ? ';' : ':';
+    var b2dPath = getB2DBinPath();
+    if (!_.startsWith(process.env.path, b2dPath)) {
+      var newPath = [b2dPath, process.env[pathString]].join(pathSep);
+      kbox.core.env.setEnv(pathString, newPath);
     }
+
   };
 
   /*
