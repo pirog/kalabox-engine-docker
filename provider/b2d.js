@@ -36,7 +36,7 @@ module.exports = function(kbox) {
     // Return path based on platform
     switch (process.platform) {
       case 'win32': return 'C:\\Program Files\\Boot2Docker for Windows';
-      case 'darwin': return path.join('usr', 'local', 'bin');
+      case 'darwin': return '/' + path.join('usr', 'local', 'bin');
       case 'linux': return path.join(sysConfRoot, 'bin');
     }
 
