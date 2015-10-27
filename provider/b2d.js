@@ -416,7 +416,7 @@ module.exports = function(kbox) {
         '-o UserKnownHostsFile=/dev/null',
         '-o LogLevel=quiet',
         '-p 2022',
-        '-i ' + path.join(sshPath, KALABOX_SSH_KEY),
+        '-i "' + path.join(sshPath, KALABOX_SSH_KEY) + '"',
         'docker@localhost'
       ];
 
