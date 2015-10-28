@@ -545,10 +545,18 @@ module.exports = function(kbox) {
           result.wait = function() {
             // Start a new promise.
             return new Promise(function(fulfill, reject) {
-              var buffer = opts.collectStdout ? '' : undefined;
+              // Collect stdout in a buffer.
+              var stdoutBuffer = opts.collectStdout ? '' : undefined;
               result.stdout.on('data', function(data) {
                 if (opts.collectStdout) {
-                  buffer += data;
+                  stdoutBuffer += data;
+                }
+              });
+              // Collect stderr in a buffer.
+              var stderrBuffer = opts.collectStdout ? '' : undefined;
+              result.stderr.on('data', function(data) {
+                if (opts.collectStdout) {
+                  stderrBuffer += data;
                 }
               });
               // When the stream ends we will check the results of our exec.
@@ -563,13 +571,18 @@ module.exports = function(kbox) {
                     reject(new Error('Exec is still running: unexpected!'));
                   } else if (data.ExitCode === 0) {
                     // Success!
-                    fulfill(buffer);
+                    if (stdoutBuffer.length === 0 && stderrBuffer.length > 0) {
+                      // Empty stdout, but there is a non-empty stderr.
+                      fulfill(stderrBuffer);
+                    } else {
+                      // Return stdout.
+                      fulfill(stdoutBuffer);
+                    }
                   } else {
                     // We have a non-zero exit code, grab stderr and report.
                     var msg = 'Non-zero exit code: ' + data.ExitCode;
-                    var output = result.stderr.read();
-                    if (output) {
-                      msg += ' ' + output;
+                    if (stderrBuffer.length > 0) {
+                      msg += ' ' + stderrBuffer;
                     }
                     reject(new Error(msg));
                   }
