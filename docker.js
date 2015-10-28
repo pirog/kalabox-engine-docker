@@ -474,6 +474,7 @@ module.exports = function(kbox) {
     // Default options.
     opts.tty = opts.tty || false;
     opts.cmd = opts.cmd || ['bash'];
+    opts.collectStdout = opts.collectStdout || false;
 
     // Exec creation options.
     var createOpts = {
@@ -544,6 +545,20 @@ module.exports = function(kbox) {
           result.wait = function() {
             // Start a new promise.
             return new Promise(function(fulfill, reject) {
+              // Collect stdout in a buffer.
+              var stdoutBuffer = opts.collectStdout ? '' : undefined;
+              result.stdout.on('data', function(data) {
+                if (opts.collectStdout) {
+                  stdoutBuffer += data;
+                }
+              });
+              // Collect stderr in a buffer.
+              var stderrBuffer = opts.collectStdout ? '' : undefined;
+              result.stderr.on('data', function(data) {
+                if (opts.collectStdout) {
+                  stderrBuffer += data;
+                }
+              });
               // When the stream ends we will check the results of our exec.
               stream.on('end', function() {
                 // Inspect the exec.
@@ -556,13 +571,18 @@ module.exports = function(kbox) {
                     reject(new Error('Exec is still running: unexpected!'));
                   } else if (data.ExitCode === 0) {
                     // Success!
-                    fulfill();
+                    if (stdoutBuffer.length === 0 && stderrBuffer.length > 0) {
+                      // Empty stdout, but there is a non-empty stderr.
+                      fulfill(stderrBuffer);
+                    } else {
+                      // Return stdout.
+                      fulfill(stdoutBuffer);
+                    }
                   } else {
                     // We have a non-zero exit code, grab stderr and report.
                     var msg = 'Non-zero exit code: ' + data.ExitCode;
-                    var output = result.stderr.read();
-                    if (output) {
-                      msg += ' ' + output;
+                    if (stderrBuffer.length > 0) {
+                      msg += ' ' + stderrBuffer;
                     }
                     reject(new Error(msg));
                   }
@@ -614,12 +634,11 @@ module.exports = function(kbox) {
   /*
    * Run a query against a container.
    */
-  var query = function(cid, cmd) {
+  var query = function(cid, cmd, opts) {
 
     // Exec options.
-    var opts = {
-      cmd: cmd
-    };
+    opts = opts || {};
+    opts.cmd = cmd;
 
     return exec(cid, opts);
 
@@ -631,14 +650,10 @@ module.exports = function(kbox) {
   var queryData = function(cid, cmd) {
 
     // Query container.
-    return query(cid, cmd)
+    return query(cid, cmd, {collectStdout: true})
     .then(function(res) {
       // Wait for container to finish.
-      return res.wait()
-      // Return contents of stdout.
-      .then(function() {
-        return res.stdout._readableState.buffer.toString();
-      });
+      return res.wait();
     });
 
   };
