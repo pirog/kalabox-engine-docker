@@ -170,6 +170,10 @@ module.exports = function(kbox) {
     .catch(function(err) {
       throw new VError(err, 'Error querying docker for list of containers.');
     })
+    // Filter out containers with invalid status.
+    .filter(function(data) {
+      return data.Status !== 'Removal In Progress';
+    })
     // Map docker containers to generic containers.
     .map(toGenericContainer)
     // Filter out nulls and undefineds.
@@ -275,7 +279,7 @@ module.exports = function(kbox) {
     })
     // Wrap errors.
     .catch(function(err) {
-      throw new VError(err, 'Error inspecting container.', cid);
+      throw new VError(err, 'Error inspecting container: %s.', cid);
     });
   };
 
