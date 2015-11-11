@@ -7,9 +7,7 @@
 
 module.exports = function(kbox) {
 
-  /*
-   * Node modules.
-   */
+  // Node modules
   var _exec = require('child_process').exec;
   var assert = require('assert');
   var format = require('util').format;
@@ -17,63 +15,18 @@ module.exports = function(kbox) {
   var path = require('path');
   var pp = require('util').inspect;
 
-  /*
-   * NPM modules.
-   */
-  var Promise = require('bluebird');
+  // NPM modules
   var VError = require('verror');
   var _ = require('lodash');
   var retry = require('retry-bluebird');
 
-  /*
-   * Get directory for provider executable.
-   */
-  var getB2DBinPath = function() {
-
-    // Get sysconf
-    var sysConfRoot = kbox.core.deps.get('config').sysConfRoot;
-
-    // Return path based on platform
-    switch (process.platform) {
-      case 'win32': return 'C:\\Program Files\\Boot2Docker for Windows';
-      case 'darwin': return '/' + path.join('usr', 'local', 'bin');
-      case 'linux': return path.join(sysConfRoot, 'bin');
-    }
-
-  };
-
-  /*
-   * Return the B2D executable location
-   */
-  var getB2DExecutable = function() {
-
-    // Get b2d path
-    var b2dPath = getB2DBinPath();
-
-    // Return exec based on path
-    switch (process.platform) {
-      case 'win32': return '"' + path.join(b2dPath, 'boot2docker.exe') + '"';
-      case 'darwin': return path.join(b2dPath, 'boot2docker');
-      case 'linux': return path.join(b2dPath, 'boot2docker');
-    }
-
-  };
-
-  /*
-   * Return the SSH executable location
-   */
-  var getSSHExecutable = function() {
-
-    // For cleanliness
-    var wBin = '"C:\\Program Files (x86)\\Git\\bin\\ssh.exe"';
-
-    return process.platform === 'win32' ? wBin : 'ssh';
-
-  };
+  // Kalabox modules
+  var Promise = kbox.Promise;
+  var bin = require('./lib/bin.js')(kbox);
 
   // Get boot2docker and ssh executable path.
-  var B2D_EXECUTABLE = getB2DExecutable();
-  var SSH_EXECUTABLE = getSSHExecutable();
+  var B2D_EXECUTABLE = bin.getB2DExecutable();
+  var SSH_EXECUTABLE = bin.getSSHExecutable();
 
   // Set of logging functions.
   var log = kbox.core.log.make('BOOT2DOCKER');
@@ -84,11 +37,6 @@ module.exports = function(kbox) {
 
   // Define kalabox SSH Key
   var KALABOX_SSH_KEY = 'boot2docker.kalabox.id_rsa';
-
-  /*
-   * Base shell command.
-   */
-  var _sh = kbox.core.deps.get('shell');
 
   /*
    * Get dynamic flags
@@ -128,6 +76,49 @@ module.exports = function(kbox) {
     var cmd = [
       '"C:\\Program Files\\Oracle\\VirtualBox\\VBoxManage.exe"',
       'showvminfo "Kalabox2" | findstr "Host-only"'
+    ];
+
+    // Get network information from virtual box.
+    return Promise.fromNode(function(cb) {
+      shell.exec(cmd.join(' '), cb);
+    })
+
+    // Parse the output
+    .then(function(output) {
+
+      // Debug log output
+      kbox.core.log.debug('ADAPTER INFO => ' + JSON.stringify(output));
+
+      // Parse output to get network adapter information.
+      var start = output.indexOf('\'');
+      var last = output.lastIndexOf('\'');
+
+      // Get the adapter
+      var adapter = [
+        output.slice(start + 1, last).replace('Ethernet Adapter', 'Network')
+      ];
+
+      // debug
+      kbox.core.log.debug('WINDOWS ADAPTER => ' + JSON.stringify(adapter));
+
+      // Return
+      return adapter;
+    });
+
+  };
+
+  /*
+   * Get the correct windows network adapter
+   */
+  var getWindowsAdapters = function() {
+
+    // Get shell library.
+    var shell = kbox.core.deps.get('shell');
+
+    // Command to run
+    var cmd = [
+      '"C:\\Program Files\\Oracle\\VirtualBox\\VBoxManage.exe"',
+      'list hostonlyifs'
     ];
 
     // Get network information from virtual box.
@@ -255,30 +246,6 @@ module.exports = function(kbox) {
   };
 
   /*
-   * Run a shell command.
-   */
-  var sh = function(cmd) {
-
-    // Log start.
-    log.debug('Executing command.', cmd);
-
-    // Run shell command.
-    return Promise.fromNode(function(cb) {
-      _sh.exec(cmd, cb);
-    })
-    // Log results.
-    .tap(function(data) {
-      log.debug('Command results.', data);
-    })
-    // Wrap errors.
-    .catch(function(err) {
-      log.debug(format('Error running command "%s".', cmd), err);
-      throw new VError(err, 'Error running command "%s".', cmd);
-    });
-
-  };
-
-  /*
    * Get root directory for provider.
    */
   var getRootDir = function() {
@@ -372,7 +339,7 @@ module.exports = function(kbox) {
     // the user may not have B2D in their path
     var pathString = (process.platform === 'win32') ? 'Path' : 'PATH';
     var pathSep = (process.platform === 'win32') ? ';' : ':';
-    var b2dPath = getB2DBinPath();
+    var b2dPath = bin.getB2DBinPath();
     if (!_.startsWith(process.env.path, b2dPath)) {
       var newPath = [b2dPath, process.env[pathString]].join(pathSep);
       kbox.core.env.setEnv(pathString, newPath);
@@ -389,7 +356,7 @@ module.exports = function(kbox) {
     setB2DEnv();
 
     // Run a provider command in a shell.
-    return sh([B2D_EXECUTABLE].concat(getFlags()).concat(cmd));
+    return bin.sh([B2D_EXECUTABLE].concat(getFlags()).concat(cmd));
 
   };
 
@@ -425,7 +392,7 @@ module.exports = function(kbox) {
     };
 
     // Run a provider command in a shell.
-    return sh([SSH_EXECUTABLE].concat(getSSHOptions()).concat(cmd));
+    return bin.sh([SSH_EXECUTABLE].concat(getSSHOptions()).concat(cmd));
 
   };
 
@@ -734,7 +701,7 @@ module.exports = function(kbox) {
     // @todo: handle alternate shells
     var which = (process.platform === 'win32') ? 'where' : 'which';
     // Run command to find location of boot2docker.
-    return sh([which, path.basename(B2D_EXECUTABLE)])
+    return bin.sh([which, path.basename(B2D_EXECUTABLE)])
     .then(function(output) {
       if (output) {
         // If a location was return, return value of hasProfile.
