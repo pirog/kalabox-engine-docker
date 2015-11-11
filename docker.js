@@ -12,7 +12,8 @@ var assert = require('assert');
 var format = require('util').format;
 var fs = require('fs');
 var path = require('path');
-var pp = require('util').inspect;
+var util = require('util');
+var pp = util.inspect;
 
 /*
  * NPM modules.
@@ -300,9 +301,17 @@ module.exports = function(kbox) {
     .then(function(data) {
       return _.get(data, 'State.Running', false);
     })
+    // If the container no longer exists, return false since it isn't running.
+    // This will prevent a race condition from happening.
     // Wrap errors.
     .catch(function(err) {
-      throw new VError(err, 'Error querying isRunning: "%s".', pp(cid));
+      var expected = util.format('The container "\'%s\'" does not exist!', cid);
+      if (_.endsWith(err.message, expected)) {
+        return false;
+      } else {
+        // Wrap errors.
+        throw new VError(err, 'Error querying isRunning: "%s".', pp(cid));
+      }
     });
   };
 
