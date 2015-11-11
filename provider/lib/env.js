@@ -1,6 +1,6 @@
 /**
- * Contains binary handling suff
- * @module b2d.bin
+ * Contains environment handling suff
+ * @module b2d.env
  */
 
 'use strict';
@@ -8,98 +8,156 @@
 module.exports = function(kbox) {
 
   // Node modules
-  var format = require('util').format;
   var path = require('path');
 
   // NPM modules
   var VError = require('verror');
+  var fs = require('fs-extra');
+  var _ = require('lodash');
 
   // Kalabox modules
   var Promise = kbox.Promise;
+  var bin = require('./bin.js');
 
   /*
-   * Get directory for provider executable.
+   * Get root directory for provider.
    */
-  var getB2DBinPath = function() {
-
-    // Get sysconf
-    var sysConfRoot = kbox.core.deps.get('config').sysConfRoot;
-
-    // Return path based on platform
-    switch (process.platform) {
-      case 'win32': return 'C:\\Program Files\\Boot2Docker for Windows';
-      case 'darwin': return '/' + path.join('usr', 'local', 'bin');
-      case 'linux': return path.join(sysConfRoot, 'bin');
-    }
-
+  var getRootDir = function() {
+    return kbox.core.deps.get('config').sysProviderRoot;
   };
 
   /*
-   * Return the B2D executable location
+   * Get path to provider profile.
    */
-  var getB2DExecutable = function() {
-
-    // Get b2d path
-    var b2dPath = getB2DBinPath();
-
-    // Return exec based on path
-    switch (process.platform) {
-      case 'win32': return '"' + path.join(b2dPath, 'boot2docker.exe') + '"';
-      case 'darwin': return path.join(b2dPath, 'boot2docker');
-      case 'linux': return path.join(b2dPath, 'boot2docker');
-    }
-
+  var getProfilePath = function() {
+    return path.join(getRootDir(), 'profile');
   };
 
   /*
-   * Return the SSH executable location
+   * Set provider profile as environmental variable.
    */
-  var getSSHExecutable = function() {
-
-    // For cleanliness
-    var wBin = '"C:\\Program Files (x86)\\Git\\bin\\ssh.exe"';
-
-    return process.platform === 'win32' ? wBin : 'ssh';
-
+  var setRootDirEnv = function() {
+    kbox.core.env.setEnv('BOOT2DOCKER_DIR', getRootDir());
   };
 
-  // Set of logging functions.
-  var log = kbox.core.log.make('BOOT2DOCKER');
-
-  /*
-   * Base shell command.
+    /*
+   * Return true if boot2docker profile exists and is in the right place.
    */
-  var _sh = kbox.core.deps.get('shell');
+  var hasProfile = function() {
 
-  /*
-   * Run a shell command.
-   */
-  var sh = function(cmd) {
+    // Get path to profile.
+    var profilePath = getProfilePath();
 
-    // Log start.
-    log.debug('Executing command.', cmd);
-
-    // Run shell command.
+    // Read contents of profile.
     return Promise.fromNode(function(cb) {
-      _sh.exec(cmd, cb);
+      fs.readFile(profilePath, {encoding: 'utf8'}, cb);
     })
-    // Log results.
-    .tap(function(data) {
-      log.debug('Command results.', data);
+    // Read was successful so return true.
+    .then(function() {
+      return true;
     })
-    // Wrap errors.
+    // An error occured, decide what to do next.
     .catch(function(err) {
-      log.debug(format('Error running command "%s".', cmd), err);
-      throw new VError(err, 'Error running command "%s".', cmd);
+      if (err.code === 'ENOENT') {
+        // File does not exist, so return false.
+        return false;
+      } else {
+        // An unexpected error occured so wrap and throw it.
+        throw new VError(err,
+          'Error reading boot2docker profile "%s".',
+          profilePath
+        );
+      }
     });
 
   };
 
+  /*
+   * Set B2D Env
+   */
+  var setB2DEnv = function() {
+
+    // Set the provider root directory as a environmental variable.
+    setRootDirEnv();
+
+    // Set Path environmental variable if we are on windows so we get access
+    // to things like ssh.exe
+    if (process.platform === 'win32') {
+
+      // Get Path
+      var gitBin = 'C:\\Program Files (x86)\\Git\\bin';
+
+      // Only add the gitbin to the path if the path doesn't start with
+      // it. We want to make sure gitBin is first so other things like
+      // putty don't F with it.
+      // See https://github.com/kalabox/kalabox/issues/342
+      if (!_.startsWith(process.env.path, gitBin)) {
+        kbox.core.env.setEnv('Path', [gitBin, process.env.Path].join(';'));
+      }
+    }
+
+    // Add B2D executable path to path to handle weird situations where
+    // the user may not have B2D in their path
+    var pathString = (process.platform === 'win32') ? 'Path' : 'PATH';
+    var pathSep = (process.platform === 'win32') ? ';' : ':';
+    var b2dPath = bin.getB2DBinPath();
+    if (!_.startsWith(process.env.path, b2dPath)) {
+      var newPath = [b2dPath, process.env[pathString]].join(pathSep);
+      kbox.core.env.setEnv(pathString, newPath);
+    }
+
+  };
+
+  /*
+   * Returns a cached instance of the provider profile.
+   */
+  var profileInstance = _.once(function() {
+
+    // Read contents of profile file.
+    return Promise.fromNode(function(cb) {
+      fs.readFile(getProfilePath(), {encoding: 'utf8'}, cb);
+    })
+    // Build profile object using contents of profile file.
+    .then(function(data) {
+
+      // Get list of lines.
+      var lines = data.split('\n');
+
+      // Build profile object.
+      var profile =
+        // Start chain with lines from profile file.
+        _.chain(lines)
+        // Filter out any uninteresting lines.
+        .filter(function(line) {
+          var isComment = _.startsWith(line, '#');
+          var isEmpty = _.isEmpty(line);
+          var isKeyValue = _.contains(line, '=');
+          return !isComment && !isEmpty && isKeyValue;
+        })
+        // Reduce list of interesting lines to an object.
+        .reduce(function(profile, line) {
+          // Split on equals sign, and trim the parts.
+          var parts = _.map(line.split('='), _.trim);
+          if (parts.length === 2) {
+            // Use parts as key value to add property to object.
+            profile[parts[0]] = parts[1];
+          }
+          return profile;
+        }, {})
+        // End chain.
+        .value();
+
+      return profile;
+
+    });
+
+  });
+
   // Build module function.
   return {
-    sh: sh,
-    getB2DExecutable: getB2DExecutable,
-    getSSHExecutable: getSSHExecutable
+    hasProfile: hasProfile,
+    setB2DEnv: setB2DEnv,
+    profileInstance: profileInstance
   };
 
 };

@@ -11,9 +11,7 @@ module.exports = function(kbox) {
   var _exec = require('child_process').exec;
   var assert = require('assert');
   var format = require('util').format;
-  var fs = require('fs');
   var path = require('path');
-  var pp = require('util').inspect;
 
   // NPM modules
   var VError = require('verror');
@@ -23,6 +21,8 @@ module.exports = function(kbox) {
   // Kalabox modules
   var Promise = kbox.Promise;
   var bin = require('./lib/bin.js')(kbox);
+  var env = require('./lib/env.js')(kbox);
+  var net = require('./lib/net.js')(kbox);
 
   // Get boot2docker and ssh executable path.
   var B2D_EXECUTABLE = bin.getB2DExecutable();
@@ -30,10 +30,6 @@ module.exports = function(kbox) {
 
   // Set of logging functions.
   var log = kbox.core.log.make('BOOT2DOCKER');
-
-  // Define some ip constants
-  var KALABOX_HOST_ONLY = '10.13.37.1';
-  var KALABOX_DEFAULT_IP = '10.13.37.42';
 
   // Define kalabox SSH Key
   var KALABOX_SSH_KEY = 'boot2docker.kalabox.id_rsa';
@@ -53,7 +49,7 @@ module.exports = function(kbox) {
     // Try to explicitly set hostIP on win32
     // @todo: we might not need this since we check and correct later
     if (process.platform === 'win32') {
-      options.push('--hostip="' + KALABOX_HOST_ONLY + '"');
+      options.push('--hostip="' + net.hostOnlyIp + '"');
     }
 
     // Limit number of retries to increase performance of non-HOSTIP Vms
@@ -65,295 +61,12 @@ module.exports = function(kbox) {
   };
 
   /*
-   * Get the correct windows network adapter
-   */
-  var getWindowsAdapter = function() {
-
-    // Get shell library.
-    var shell = kbox.core.deps.get('shell');
-
-    // Command to run
-    var cmd = [
-      '"C:\\Program Files\\Oracle\\VirtualBox\\VBoxManage.exe"',
-      'showvminfo "Kalabox2" | findstr "Host-only"'
-    ];
-
-    // Get network information from virtual box.
-    return Promise.fromNode(function(cb) {
-      shell.exec(cmd.join(' '), cb);
-    })
-
-    // Parse the output
-    .then(function(output) {
-
-      // Debug log output
-      kbox.core.log.debug('ADAPTER INFO => ' + JSON.stringify(output));
-
-      // Parse output to get network adapter information.
-      var start = output.indexOf('\'');
-      var last = output.lastIndexOf('\'');
-
-      // Get the adapter
-      var adapter = [
-        output.slice(start + 1, last).replace('Ethernet Adapter', 'Network')
-      ];
-
-      // debug
-      kbox.core.log.debug('WINDOWS ADAPTER => ' + JSON.stringify(adapter));
-
-      // Return
-      return adapter;
-    });
-
-  };
-
-  /*
-   * Get the correct windows network adapter
-   */
-  var getWindowsAdapters = function() {
-
-    // Get shell library.
-    var shell = kbox.core.deps.get('shell');
-
-    // Command to run
-    var cmd = [
-      '"C:\\Program Files\\Oracle\\VirtualBox\\VBoxManage.exe"',
-      'list hostonlyifs'
-    ];
-
-    // Get network information from virtual box.
-    return Promise.fromNode(function(cb) {
-      shell.exec(cmd.join(' '), cb);
-    })
-
-    // Parse the output
-    .then(function(output) {
-
-      // Debug log output
-      kbox.core.log.debug('ADAPTER INFO => ' + JSON.stringify(output));
-
-      // Parse output to get network adapter information.
-      var start = output.indexOf('\'');
-      var last = output.lastIndexOf('\'');
-
-      // Get the adapter
-      var adapter = [
-        output.slice(start + 1, last).replace('Ethernet Adapter', 'Network')
-      ];
-
-      // debug
-      kbox.core.log.debug('WINDOWS ADAPTER => ' + JSON.stringify(adapter));
-
-      // Return
-      return adapter;
-    });
-
-  };
-
-  /*
-   * Check the status of our host only adapter
-   */
-  var isHostOnlySet = function() {
-
-    // Get shell library.
-    var shell = kbox.core.deps.get('shell');
-
-    // Grab the default HOA
-    var ip = KALABOX_HOST_ONLY;
-
-    // Grab the host only adapter so we can be SUPER PRECISE!
-    return getWindowsAdapter()
-
-    // Get network information from virtual box.
-    .then(function(adapter) {
-
-      var adp = adapter;
-
-      // Command to run
-      var cmd = 'netsh interface ipv4 show addresses';
-
-      // Execute promisified shell
-      return Promise.fromNode(function(cb) {
-        shell.exec(cmd, cb);
-      })
-
-      // Need to catch findstr null reporting as error
-      .catch(function(err) {
-        // @todo: something more precise here
-      })
-
-      .then(function(output) {
-        // Truncate the string for just data on what we need
-        // This elminates the possibility that another adapter has our
-        // setup. Although, to be fair, if another adapter does then
-        // we are probably SOL anyway.
-
-        // Trim the left
-        var leftTrim = 'Configuration for interface "' + adp + '"';
-        var truncLeft = output.indexOf(leftTrim);
-        var left = output.slice(truncLeft);
-
-        // Trim the right
-        var rightTrim = 'Subnet Prefix';
-        var truncRight = left.indexOf(rightTrim);
-
-        // Return precise
-        return left.slice(0, truncRight);
-      });
-
-    })
-
-    // Parse the output
-    .then(function(output) {
-
-      // Parse output
-      var isSet = _.includes(output, ip);
-
-      // Debug log output
-      kbox.core.log.debug('ADAPTER SET CORRECTLY => ' + JSON.stringify(isSet));
-
-      // Return
-      return isSet;
-    });
-
-  };
-
-  /*
-   * Force set the host only adapter if it is not set correctly
-   */
-  var setHostOnly = function() {
-
-    // Get network information from virtual box.
-    return getWindowsAdapter()
-
-    // Parse the output
-    .then(function(adapter) {
-
-      // @todo: Dont hardcode this
-      var ip = KALABOX_HOST_ONLY;
-      // Command to run
-      var cmd = 'netsh interface ipv4 set address name="' + adapter + '" ' +
-        'static ' + ip + ' store=persistent';
-
-      // Debug log output
-      kbox.core.log.debug('SETTING ADAPTER => ' + JSON.stringify(cmd));
-
-      // Run an elevated command for this
-      return kbox.util.shell.execElevated(cmd);
-
-    });
-
-  };
-
-  /*
-   * Get root directory for provider.
-   */
-  var getRootDir = function() {
-    return kbox.core.deps.get('config').sysProviderRoot;
-  };
-
-  /*
-   * Get path to provider profile.
-   */
-  var getProfilePath = function() {
-    return path.join(getRootDir(), 'profile');
-  };
-
-  /*
-   * Set provider profile as environmental variable.
-   */
-  var setRootDirEnv = function() {
-    kbox.core.env.setEnv('BOOT2DOCKER_DIR', getRootDir());
-  };
-
-  /*
-   * Returns a cached instance of the provider profile.
-   */
-  var profileInstance = _.once(function() {
-
-    // Read contents of profile file.
-    return Promise.fromNode(function(cb) {
-      fs.readFile(getProfilePath(), {encoding: 'utf8'}, cb);
-    })
-    // Build profile object using contents of profile file.
-    .then(function(data) {
-
-      // Get list of lines.
-      var lines = data.split('\n');
-
-      // Build profile object.
-      var profile =
-        // Start chain with lines from profile file.
-        _.chain(lines)
-        // Filter out any uninteresting lines.
-        .filter(function(line) {
-          var isComment = _.startsWith(line, '#');
-          var isEmpty = _.isEmpty(line);
-          var isKeyValue = _.contains(line, '=');
-          return !isComment && !isEmpty && isKeyValue;
-        })
-        // Reduce list of interesting lines to an object.
-        .reduce(function(profile, line) {
-          // Split on equals sign, and trim the parts.
-          var parts = _.map(line.split('='), _.trim);
-          if (parts.length === 2) {
-            // Use parts as key value to add property to object.
-            profile[parts[0]] = parts[1];
-          }
-          return profile;
-        }, {})
-        // End chain.
-        .value();
-
-      return profile;
-
-    });
-
-  });
-
-  /*
-   * Set B2D Env
-   */
-  var setB2DEnv = function() {
-
-    // Set the provider root directory as a environmental variable.
-    setRootDirEnv();
-
-    // Set Path environmental variable if we are on windows so we get access
-    // to things like ssh.exe
-    if (process.platform === 'win32') {
-
-      // Get Path
-      var gitBin = 'C:\\Program Files (x86)\\Git\\bin';
-
-      // Only add the gitbin to the path if the path doesn't start with
-      // it. We want to make sure gitBin is first so other things like
-      // putty don't F with it.
-      // See https://github.com/kalabox/kalabox/issues/342
-      if (!_.startsWith(process.env.path, gitBin)) {
-        kbox.core.env.setEnv('Path', [gitBin, process.env.Path].join(';'));
-      }
-    }
-
-    // Add B2D executable path to path to handle weird situations where
-    // the user may not have B2D in their path
-    var pathString = (process.platform === 'win32') ? 'Path' : 'PATH';
-    var pathSep = (process.platform === 'win32') ? ';' : ':';
-    var b2dPath = bin.getB2DBinPath();
-    if (!_.startsWith(process.env.path, b2dPath)) {
-      var newPath = [b2dPath, process.env[pathString]].join(pathSep);
-      kbox.core.env.setEnv(pathString, newPath);
-    }
-
-  };
-
-  /*
    * Run a provider command in a shell.
    */
   var shProvider = function(cmd) {
 
     // Set the B2D env
-    setB2DEnv();
+    env.setB2DEnv();
 
     // Run a provider command in a shell.
     return bin.sh([B2D_EXECUTABLE].concat(getFlags()).concat(cmd));
@@ -366,7 +79,7 @@ module.exports = function(kbox) {
   var shProviderSSH = function(cmd) {
 
     // Set the B2D env
-    setB2DEnv();
+    env.setB2DEnv();
 
     /*
      * Return ssh options
@@ -405,7 +118,7 @@ module.exports = function(kbox) {
       'sudo',
       'ifconfig',
       'eth1',
-      KALABOX_DEFAULT_IP,
+      net.defaultIp,
       'netmask',
       '255.255.255.0',
       'broadcast',
@@ -473,11 +186,11 @@ module.exports = function(kbox) {
       }
       if (process.platform === 'win32') {
         // Check if we need to add a DNS command
-        return isHostOnlySet()
+        return net.isHostOnlySet()
         // If not set then set
         .then(function(isSet) {
           if (!isSet) {
-            return setHostOnly();
+            return net.setHostOnly();
           }
         });
       }
@@ -633,38 +346,6 @@ module.exports = function(kbox) {
   };
 
   /*
-   * Return true if boot2docker profile exists and is in the right place.
-   */
-  var hasProfile = function() {
-
-    // Get path to profile.
-    var profilePath = getProfilePath();
-
-    // Read contents of profile.
-    return Promise.fromNode(function(cb) {
-      fs.readFile(profilePath, {encoding: 'utf8'}, cb);
-    })
-    // Read was successful so return true.
-    .then(function() {
-      return true;
-    })
-    // An error occured, decide what to do next.
-    .catch(function(err) {
-      if (err.code === 'ENOENT') {
-        // File does not exist, so return false.
-        return false;
-      } else {
-        // An unexpected error occured so wrap and throw it.
-        throw new VError(err,
-          'Error reading boot2docker profile "%s".',
-          profilePath
-        );
-      }
-    });
-
-  };
-
-  /*
    * Check to see if we have a Kalabox2 VM
    */
   var vmExists = function() {
@@ -689,13 +370,11 @@ module.exports = function(kbox) {
 
   /*
    * Return true if boot2docker is installed.
-   * @todo: installer should set a uuid file from boot2docker info and then
-   * run 'boot2docker info' and compare the UUID key with the uuid file.
    */
   var isInstalled = function() {
 
     // set the b2d env
-    setB2DEnv();
+    env.setB2DEnv();
 
     // Grab correct path checking tool
     // @todo: handle alternate shells
@@ -705,7 +384,7 @@ module.exports = function(kbox) {
     .then(function(output) {
       if (output) {
         // If a location was return, return value of hasProfile.
-        return hasProfile()
+        return env.hasProfile()
         // Do a final check to see if a Kalabox2 VM exists
         .then(function(hasProfile) {
           return hasProfile && vmExists();
@@ -745,6 +424,8 @@ module.exports = function(kbox) {
 
   /*
    * @todo: @pirog - What is this for?
+   * @todo: @bcauldwell - I think we can remove this, need to remove from
+   * core provider.js as well
    */
   var hasTasks = function() {
     return Promise.resolve(true);
@@ -756,7 +437,7 @@ module.exports = function(kbox) {
   var getServerIps = function() {
 
     // Get instance of boot2docker profile object.
-    return profileInstance()
+    return env.profileInstance()
     // Return list of possibel IP addresses.
     .then(function(profile) {
 
