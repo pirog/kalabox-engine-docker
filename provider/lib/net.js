@@ -10,6 +10,9 @@ module.exports = function(kbox) {
   // NPM modules
   var _ = require('lodash');
 
+  // Kalabox modules
+  var Promise = kbox.Promise;
+
   // Define some ip constants
   var KALABOX_HOST_ONLY = '10.13.37.1';
   var KALABOX_DEFAULT_IP = '10.13.37.42';
@@ -23,7 +26,7 @@ module.exports = function(kbox) {
 
     // Execute promisified shell
     return Promise.fromNode(function(cb) {
-      shell.exec(cmd, cb);
+      _shell.exec(cmd, cb);
     });
   };
 
@@ -123,7 +126,7 @@ module.exports = function(kbox) {
       var cmd = 'netsh interface ipv4 show addresses';
 
       // Execute promisified shell
-      return shell(cmd.join(' '))
+      return shell(cmd)
 
       // Need to catch findstr null reporting as error
       .catch(function(err) {

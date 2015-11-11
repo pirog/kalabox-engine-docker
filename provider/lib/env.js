@@ -17,7 +17,7 @@ module.exports = function(kbox) {
 
   // Kalabox modules
   var Promise = kbox.Promise;
-  var bin = require('./bin.js');
+  var bin = require('./bin.js')(kbox);
 
   /*
    * Get root directory for provider.
