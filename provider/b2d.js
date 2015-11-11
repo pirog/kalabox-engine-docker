@@ -8,7 +8,6 @@
 module.exports = function(kbox) {
 
   // Node modules
-  var _exec = require('child_process').exec;
   var assert = require('assert');
   var format = require('util').format;
   var path = require('path');
@@ -128,12 +127,81 @@ module.exports = function(kbox) {
   };
 
   /*
+   * Init boot2docker
+   */
+  var init = function(opts) {
+
+    return retry(opts, function(counter) {
+
+      // Log start.
+      log.info(kbox.util.format('Initializing boot2docker [%s].', counter));
+
+      // Build command.
+      var initCmd = ['init'];
+
+      // Add disksize option to command.
+      if (opts.disksize) {
+        initCmd.unshift(kbox.util.format('--disksize=%s', opts.disksize));
+      }
+
+      // Run provider command.
+      return shProvider(initCmd)
+
+      // Wrap errors.
+      .catch(function(err) {
+        log.info('Initializing boot2docker failed, retrying.', err);
+        throw new VError(err, 'Error initializing boot2docker.', initCmd);
+      });
+
+    });
+  };
+
+  /*
+   * Boot2docker up helper
+   */
+  var _up = function(opts) {
+    // Retry the upping
+    return retry(opts, function(counter) {
+
+      // Log start.
+      log.info(kbox.util.format('Bringing boot2docker up [%s].', counter));
+
+      // Run provider command.
+      return shProvider(['up'])
+
+      // Wrap errors.
+      .catch(function(err) {
+        log.info('Bringing up boot2docker failed, retrying.', err);
+        throw new VError(err, 'Error bringing boot2docker up.');
+      })
+
+      .then(function(output) {
+
+        // If B2D reports no IP found we will try to set it manually
+        // @todo: tighter check here
+        if (_.includes(output, 'No IP') || _.includes(output, 'Error')) {
+
+          // Log falure
+          log.info('Boot2docker failed to provide an IP. Setting manually.');
+
+          // Set manually
+          return shProviderSSH(setProviderIPCmd())
+
+          // Retry up so we can grab the correct adapter
+          .then(function() {
+            return up({max:3});
+          });
+
+        }
+      });
+
+    });
+  };
+
+  /*
    * Bring boot2docker up.
    */
   var up = function(opts) {
-
-    // @todo: @bcauldwell - Maybe split each task out into it's own function
-    // to make this a little cleaner.
 
     // Default settings for max retries.
     opts.max = opts.max || opts.maxRetries || 3;
@@ -143,48 +211,23 @@ module.exports = function(kbox) {
 
     // Emit pre-up event.
     return Promise.try(kbox.core.events.emit, 'pre-up')
+
     // Init boot2docker.
     .then(function() {
-      return retry(opts, function(counter) {
-        // Log start.
-        log.info(kbox.util.format('Initializing boot2docker [%s].', counter));
-        // Build command.
-        var initCmd = ['init'];
-        // Add disksize option to command.'
-        if (opts.disksize) {
-          initCmd.unshift(kbox.util.format('--disksize=%s', opts.disksize));
-        }
-        // Run provider command.
-        return shProvider(initCmd)
-        // Wrap errors.
-        .catch(function(err) {
-          log.info('Initializing boot2docker failed, retrying.', err);
-          throw new VError(err, 'Error initializing boot2docker.', initCmd);
-        });
-      });
+      return init(opts);
     })
+
     // Check the status so we know what to do on the next step
     .then(function() {
       return getStatus();
     })
+
     // Manually share files on linux. But only do this if the VM is off first
     .then(function(status) {
       if (process.platform === 'linux' && status !== 'running') {
-        return retry(opts, function(counter) {
-          // @todo: make this less gross
-          var shareCmd = 'VBoxManage sharedfolder add "Kalabox2"' +
-          ' --name "Users" --hostpath "/home" --automount';
-          log.info(kbox.util.format('Sharing folders [%s].', counter));
-          return Promise.fromNode(function(cb) {
-            _exec(shareCmd, cb);
-          })
-          .catch(function(err) {
-            log.info('Sharing folder failed, retrying.', err);
-            throw new VError(err, 'Error sharing folders.');
-          });
-        });
+        return net.linuxSharing(opts);
       }
-      if (process.platform === 'win32') {
+      else if (process.platform === 'win32') {
         // Check if we need to add a DNS command
         return net.isHostOnlySet()
         // If not set then set
@@ -195,41 +238,17 @@ module.exports = function(kbox) {
         });
       }
     })
+
     // Bring boot2docker up.
     .then(function() {
-      return retry(opts, function(counter) {
-        // Log start.
-        log.info(kbox.util.format('Bringing boot2docker up [%s].', counter));
-        // Run provider command.
-        return shProvider(['up'])
-        // Wrap errors.
-        .catch(function(err) {
-          log.info('Bringing up boot2docker failed, retrying.', err);
-          throw new VError(err, 'Error bringing boot2docker up.');
-        })
-        .then(function(output) {
-          // If B2D reports no IP found we will try to set it manually
-          // @todo: tighter check here
-          if (_.includes(output, 'No IP') || _.includes(output, 'Error')) {
-
-            // Log falure
-            log.info('Boot2docker failed to provide an IP. Setting manually.');
-
-            // Set manually
-            return shProviderSSH(setProviderIPCmd())
-
-            // Retry up so we can grab the correct adapter
-            .then(function() {
-              return up({max:3});
-            });
-          }
-        });
-      });
+      return _up(opts);
     })
+
     // Log success.
     .then(function() {
       log.info('Boot2docker is up.');
     })
+
     // Emit post-up event.
     .then(function() {
       return kbox.core.events.emit('post-up');

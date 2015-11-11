@@ -9,6 +9,8 @@ module.exports = function(kbox) {
 
   // NPM modules
   var _ = require('lodash');
+  var retry = require('retry-bluebird');
+  var VError = require('verror');
 
   // Kalabox modules
   var Promise = kbox.Promise;
@@ -196,12 +198,47 @@ module.exports = function(kbox) {
 
   };
 
+  /*
+   * Set up sharing on Linux
+   */
+  var linuxSharing = function(opts) {
+
+    // Retry the linxu sharing a few times
+    return retry(opts, function(counter) {
+
+      // VBOXMANAGE sharing command
+      // @todo: less hardcoding?
+      // @todo: VBoxManage in path?
+      var cmd = [
+        'VBoxManage sharedfolder add "Kalabox2"',
+        ' --name "Users" --hostpath "/home" --automount'];
+
+      // Run the command
+      return shell(cmd.join(' '))
+
+      // Catch the error
+      .catch(function(err) {
+        kbox.core.log.info('Sharing folder failed, retrying.', err);
+        throw new VError(err, 'Error sharing folders.');
+      })
+
+      // Log success
+      .then(function() {
+        // Log result
+        kbox.core.log.info(kbox.util.format('Sharing folders [%s].', counter));
+      });
+
+    });
+
+  };
+
   // Build module function.
   return {
     defaultIp: KALABOX_DEFAULT_IP,
     hostOnlyIp: KALABOX_HOST_ONLY,
     isHostOnlySet: isHostOnlySet,
-    setHostOnly: setHostOnly
+    setHostOnly: setHostOnly,
+    linuxSharing: linuxSharing
   };
 
 };
