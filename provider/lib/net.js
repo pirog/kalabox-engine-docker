@@ -33,6 +33,13 @@ module.exports = function(kbox) {
   };
 
   /*
+   * Return netsh parsed vbox adapter name
+   */
+  var adapterToWin = function(adapter) {
+    return adapter.replace('Ethernet Adapter', 'Network');
+  };
+
+  /*
    * Get the correct windows network adapter
    */
   var getKalaboxAdapter = function() {
@@ -55,11 +62,7 @@ module.exports = function(kbox) {
       // Parse output to get network adapter information.
       var start = output.indexOf('\'');
       var last = output.lastIndexOf('\'');
-
-      // Get the adapter
-      var adapter = [
-        output.slice(start + 1, last).replace('Ethernet Adapter', 'Network')
-      ];
+      var adapter = output.slice(start + 1, last);
 
       // debug
       kbox.core.log.debug('WINDOWS ADAPTER => ' + JSON.stringify(adapter));
@@ -127,7 +130,7 @@ module.exports = function(kbox) {
     // Get network information from virtual box.
     .then(function(adapter) {
 
-      var adp = adapter;
+      var adp = adapterToWin(adapter);
 
       // Command to run
       var cmd = 'netsh interface ipv4 show addresses';
@@ -189,8 +192,9 @@ module.exports = function(kbox) {
 
       // @todo: Dont hardcode this
       var ip = KALABOX_HOST_ONLY;
+      var winAdapter = adapterToWin(adapter);
       // Command to run
-      var cmd = 'netsh interface ipv4 set address name="' + adapter + '" ' +
+      var cmd = 'netsh interface ipv4 set address name="' + winAdapter + '" ' +
         'static ' + ip + ' store=persistent';
 
       // Debug log output
@@ -199,7 +203,10 @@ module.exports = function(kbox) {
       // Run an elevated command for this
       return kbox.util.shell.execElevated(cmd);
 
-    });
+    })
+
+    // Set a reasonable timeout to make sure this takes effect
+    .delay(10 * 1000);
 
   };
 
@@ -270,7 +277,7 @@ module.exports = function(kbox) {
       // that has our host ip
       .then(function(kboxAdapter) {
         var hasAdapter = hostAdapter !== undefined;
-        var goneRogue = hasAdapter && kboxAdapter[0] !== hostAdapter.name;
+        var goneRogue = hasAdapter && kboxAdapter !== hostAdapter.name;
         return (goneRogue) ? hostAdapter : false;
       });
     });
@@ -292,7 +299,11 @@ module.exports = function(kbox) {
     kbox.core.log.debug('KILLING ADAPTER => ' + JSON.stringify(cmd));
 
     // Run an elevated command for this
-    return kbox.util.shell.execElevated(cmd.join(' '));
+    return kbox.util.shell.execElevated(cmd.join(' '))
+
+    // We need a long delay here to make sure the adapter is actually
+    // purged
+    .delay(25 * 1000);
 
   };
 
