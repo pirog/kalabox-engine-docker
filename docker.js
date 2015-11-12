@@ -5,30 +5,31 @@
  * @module docker
  */
 
-/*
- * Node API modules.
- */
-var assert = require('assert');
-var format = require('util').format;
-var fs = require('fs');
-var path = require('path');
-var util = require('util');
-var pp = util.inspect;
-
-/*
- * NPM modules.
- */
-var Dockerode = require('dockerode');
-var MemoryStream = require('memorystream');
-var Promise = require('bluebird');
-var VError = require('verror');
-var _ = require('lodash');
-var async = require('async');
-var retry = require('retry-bluebird');
-var uuid = require('uuid');
-
 // Build module.
 module.exports = function(kbox) {
+
+  /*
+   * Node API modules.
+   */
+  var assert = require('assert');
+  var format = require('util').format;
+  var fs = require('fs');
+  var path = require('path');
+  var pp = require('util').inspect;
+
+  /*
+   * NPM modules.
+   */
+  var Dockerode = require('dockerode');
+  var MemoryStream = require('memorystream');
+  var VError = require('verror');
+  var _ = require('lodash');
+  var async = require('async');
+  var retry = require('retry-bluebird');
+  var uuid = require('uuid');
+
+  // Kalabox Modules
+  var Promise = kbox.Promise;
 
   // Save for later.
   var self = this;
