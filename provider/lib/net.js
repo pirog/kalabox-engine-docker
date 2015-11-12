@@ -35,7 +35,7 @@ module.exports = function(kbox) {
   /*
    * Get the correct windows network adapter
    */
-  var getWindowsAdapter = function() {
+  var getKalaboxAdapter = function() {
 
     // Command to run
     var cmd = [
@@ -87,23 +87,28 @@ module.exports = function(kbox) {
     // Parse the output
     .then(function(output) {
 
-      // Debug log output
-      kbox.core.log.debug('ADAPTER INFO => ' + JSON.stringify(output));
+      var rawAdapters = output.split('\r\n\r\n');
+      rawAdapters.pop();
 
-      // Parse output to get network adapter information.
-      var start = output.indexOf('\'');
-      var last = output.lastIndexOf('\'');
+      // Map raw adapters to objectified adapters
+      var adapters = _.map(rawAdapters, function(rawAdapter) {
 
-      // Get the adapter
-      var adapter = [
-        output.slice(start + 1, last).replace('Ethernet Adapter', 'Network')
-      ];
+        // Split the raw adapter into lines
+        var lines = rawAdapter.split('\r\n');
 
-      // debug
-      kbox.core.log.debug('WINDOWS ADAPTER => ' + JSON.stringify(adapter));
+        // Split lines into key|value pairs
+        var adapter = {};
+        _.forEach(lines, function(line) {
+          var splitter = line.split(':');
+          adapter[_.trim(splitter[0]).toLowerCase()] = _.trim(splitter[1]);
+        });
+
+        // Return the object
+        return adapter;
+      });
 
       // Return
-      return adapter;
+      return adapters;
     });
 
   };
@@ -117,7 +122,7 @@ module.exports = function(kbox) {
     var ip = KALABOX_HOST_ONLY;
 
     // Grab the host only adapter so we can be SUPER PRECISE!
-    return getWindowsAdapter()
+    return getKalaboxAdapter()
 
     // Get network information from virtual box.
     .then(function(adapter) {
@@ -177,7 +182,7 @@ module.exports = function(kbox) {
   var setHostOnly = function() {
 
     // Get network information from virtual box.
-    return getWindowsAdapter()
+    return getKalaboxAdapter()
 
     // Parse the output
     .then(function(adapter) {
@@ -232,13 +237,101 @@ module.exports = function(kbox) {
 
   };
 
+  /*
+   * Get host only adapter that mathes our Kalabox host ip
+   */
+  var getHostOnlyAdapter = function() {
+    // Grab all our HO adapters
+    return getWindowsAdapters()
+
+    // Grab the adapter that has our host ip
+    .then(function(adapters) {
+      return _.find(adapters, function(adapter) {
+        return adapter.ipaddress === KALABOX_HOST_ONLY;
+      });
+    });
+  };
+
+  /*
+   * Set up sharing on Linux
+   */
+  var hasRogueAdapter = function() {
+
+    // Grab the HOA
+    return getHostOnlyAdapter()
+
+    // Determine whether it has GONE ROGUE or not
+    .then(function(hostAdapter) {
+
+      // Get the kalabox adapter
+      return getKalaboxAdapter()
+
+      // Check to see if that adapter is the same as the one
+      // that has our host ip
+      .then(function(kboxAdapter) {
+        var hasAdapter = hostAdapter !== undefined;
+        var goneRogue = hasAdapter && kboxAdapter[0] !== hostAdapter.name;
+        return (goneRogue) ? hostAdapter : false;
+      });
+    });
+
+  };
+
+  /*
+   * Kill an adapter
+   */
+  var killAdapter = function(adapter) {
+
+    // Command to run
+    var cmd = [
+      '"C:\\Program Files\\Oracle\\VirtualBox\\VBoxManage.exe"',
+      'hostonlyif remove "' + adapter.name + '"'
+    ];
+
+    // Debug log output
+    kbox.core.log.debug('KILLING ADAPTER => ' + JSON.stringify(cmd));
+
+    // Run an elevated command for this
+    return kbox.util.shell.execElevated(cmd.join(' '));
+
+  };
+
+  /*
+   * Set up sharing on Linux
+   */
+  var verifyWindowsNetworking = function() {
+
+    // Check to see if we have a rogue adapter
+    return hasRogueAdapter()
+
+    // Kill the rogue adapter if we need to
+    .then(function(goneRogue) {
+      if (goneRogue !== false) {
+        return killAdapter(goneRogue);
+      }
+    })
+
+    // Check if we need to repair our networking
+    .then(function() {
+      return isHostOnlySet();
+    })
+
+    // If not set then set
+    .then(function(isSet) {
+      if (!isSet) {
+        return setHostOnly();
+      }
+    });
+  };
+
   // Build module function.
   return {
     defaultIp: KALABOX_DEFAULT_IP,
     hostOnlyIp: KALABOX_HOST_ONLY,
     isHostOnlySet: isHostOnlySet,
     setHostOnly: setHostOnly,
-    linuxSharing: linuxSharing
+    linuxSharing: linuxSharing,
+    verifyWindowsNetworking: verifyWindowsNetworking
   };
 
 };

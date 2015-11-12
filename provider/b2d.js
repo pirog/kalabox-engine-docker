@@ -222,21 +222,19 @@ module.exports = function(kbox) {
       return getStatus();
     })
 
-    // Manually share files on linux. But only do this if the VM is off first
+    // Do OS specific things and checks
     .then(function(status) {
+
+      // Manually do VBOX file sharing on nix
       if (process.platform === 'linux' && status !== 'running') {
         return net.linuxSharing(opts);
       }
+
+      // Verify our networking is setup correctly on windows
       else if (process.platform === 'win32') {
-        // Check if we need to add a DNS command
-        return net.isHostOnlySet()
-        // If not set then set
-        .then(function(isSet) {
-          if (!isSet) {
-            return net.setHostOnly();
-          }
-        });
+        return net.verifyWindowsNetworking();
       }
+
     })
 
     // Bring boot2docker up.
