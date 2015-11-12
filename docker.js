@@ -306,7 +306,7 @@ module.exports = function(kbox) {
     // This will prevent a race condition from happening.
     // Wrap errors.
     .catch(function(err) {
-      var expected = util.format('The container "\'%s\'" does not exist!', cid);
+      var expected = format('The container "\'%s\'" does not exist!', cid);
       if (_.endsWith(err.message, expected)) {
         return false;
       } else {
