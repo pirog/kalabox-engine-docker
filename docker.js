@@ -162,8 +162,11 @@ module.exports = function(kbox) {
     // Query docker for list of containers.
     return dockerInstance()
     .then(function(dockerInstance) {
-      return Promise.fromNode(function(cb) {
-        dockerInstance.listContainers({all: 1}, cb);
+      // Make sure to retry call to list containers.
+      return Promise.retry(function() {
+        return Promise.fromNode(function(cb) {
+          dockerInstance.listContainers({all: 1}, cb);
+        });
       });
     })
     // Make sure we have a timeout.
@@ -275,8 +278,11 @@ module.exports = function(kbox) {
     return findContainerThrows(cid)
     // Inspect container.
     .then(function(container) {
-      return Promise.fromNode(function(cb) {
-        container.inspect(cb);
+      // Make sure to retry call to inspect.
+      return Promise.retry(function() {
+        return Promise.fromNode(function(cb) {
+          container.inspect(cb);
+        });
       });
     })
     // Wrap errors.
@@ -335,8 +341,10 @@ module.exports = function(kbox) {
         // Inspect container.
         return dockerInstance()
         .then(function(dockerInstance) {
-          return Promise.fromNode(function(cb) {
-            dockerInstance.getContainer(container.id).inspect(cb);
+          return Promise.retry(function() {
+            return Promise.fromNode(function(cb) {
+              dockerInstance.getContainer(container.id).inspect(cb);
+            });
           });
         })
         // Wrap errors.
