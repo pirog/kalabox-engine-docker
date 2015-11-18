@@ -1079,16 +1079,24 @@ module.exports = function(kbox) {
     // Log start.
     log.info('Pulling image.', image);
 
+    // Check to make sure we have internet access.
+    return kbox.util.internet.check()
     // Start pulling docker image.
-    return dockerInstance()
+    .then(function() {
+      return dockerInstance();
+    })
+    // Pull the image.
     .then(function(dockerInstance) {
-      return Promise.fromNode(function(cb) {
-        dockerInstance.pull(image.name, cb);
+      // Run inside of a promise retry.
+      return Promise.retry(function() {
+        // Start pull.
+        return Promise.fromNode(function(cb) {
+          dockerInstance.pull(image.name, cb);
+        })
+        // Follow pull progress.
+        .then(consumeBuildOrPullStream);
       });
     })
-    // Consume stdout from pulling docker image.
-    // Monitor the output of the building of the image.
-    .then(consumeBuildOrPullStream)
     // Log success.
     .tap(function() {
       log.info('Pulling image complete.', image);
