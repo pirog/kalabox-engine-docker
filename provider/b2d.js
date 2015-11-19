@@ -225,6 +225,11 @@ module.exports = function(kbox) {
     // Do OS specific things and checks
     .then(function(status) {
 
+      // Manually do VBOX dns handling
+      if (status !== 'running') {
+        return net.setHostDnsResolver(opts);
+      }
+
       // Manually do VBOX file sharing on nix
       if (process.platform === 'linux' && status !== 'running') {
         return net.linuxSharing(opts);

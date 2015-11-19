@@ -245,6 +245,26 @@ module.exports = function(kbox) {
   };
 
   /*
+   * Set up dns resolution
+   */
+  var setHostDnsResolver = function(opts) {
+
+    // Retry the linxu sharing a few times
+    return retry(opts, function(counter) {
+
+      // VBOXMANAGE dns resolver
+      var cmd = [
+        'VBoxManage modifyvm "Kalabox2"',
+        '--natdnshostresolver1 on'];
+
+      // Run the command
+      return shell(cmd.join(' '));
+
+    });
+
+  };
+
+  /*
    * Get host only adapter that mathes our Kalabox host ip
    */
   var getHostOnlyAdapter = function() {
@@ -342,7 +362,8 @@ module.exports = function(kbox) {
     isHostOnlySet: isHostOnlySet,
     setHostOnly: setHostOnly,
     linuxSharing: linuxSharing,
-    verifyWindowsNetworking: verifyWindowsNetworking
+    verifyWindowsNetworking: verifyWindowsNetworking,
+    setHostDnsResolver: setHostDnsResolver
   };
 
 };
