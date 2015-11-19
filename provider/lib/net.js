@@ -33,6 +33,22 @@ module.exports = function(kbox) {
   };
 
   /*
+   * Helper to get the vbox exec
+   */
+  var getVboxExec = function() {
+
+    var winVBox = '"C:\\Program Files\\Oracle\\VirtualBox\\VBoxManage.exe"';
+
+    // Return path based on platform
+    switch (process.platform) {
+      case 'win32': return winVBox;
+      case 'darwin': return 'VBoxManage';
+      case 'linux': return 'VBoxManage';
+    }
+
+  };
+
+  /*
    * Return netsh parsed vbox adapter name
    */
   var adapterToWin = function(adapter) {
@@ -46,7 +62,7 @@ module.exports = function(kbox) {
 
     // Command to run
     var cmd = [
-      '"C:\\Program Files\\Oracle\\VirtualBox\\VBoxManage.exe"',
+      getVboxExec(),
       'showvminfo "Kalabox2" | findstr "Host-only"'
     ];
 
@@ -80,7 +96,7 @@ module.exports = function(kbox) {
 
     // Command to run
     var cmd = [
-      '"C:\\Program Files\\Oracle\\VirtualBox\\VBoxManage.exe"',
+      getVboxExec(),
       'list hostonlyifs'
     ];
 
@@ -222,7 +238,8 @@ module.exports = function(kbox) {
       // @todo: less hardcoding?
       // @todo: VBoxManage in path?
       var cmd = [
-        'VBoxManage sharedfolder add "Kalabox2"',
+        getVboxExec(),
+        'sharedfolder add "Kalabox2"',
         ' --name "Users" --hostpath "/home" --automount'];
 
       // Run the command
@@ -254,7 +271,8 @@ module.exports = function(kbox) {
 
       // VBOXMANAGE dns resolver
       var cmd = [
-        'VBoxManage modifyvm "Kalabox2"',
+        getVboxExec(),
+        'modifyvm "Kalabox2"',
         '--natdnshostresolver1 on'];
 
       // Run the command
@@ -311,7 +329,7 @@ module.exports = function(kbox) {
 
     // Command to run
     var cmd = [
-      '"C:\\Program Files\\Oracle\\VirtualBox\\VBoxManage.exe"',
+      getVboxExec(),
       'hostonlyif remove "' + adapter.name + '"'
     ];
 
