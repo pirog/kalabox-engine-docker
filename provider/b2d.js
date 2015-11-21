@@ -22,6 +22,7 @@ module.exports = function(kbox) {
   var bin = require('./lib/bin.js')(kbox);
   var env = require('./lib/env.js')(kbox);
   var net = require('./lib/net.js')(kbox);
+  var meta = require('./../lib/meta.js');
 
   // Get boot2docker and ssh executable path.
   var B2D_EXECUTABLE = bin.getB2DExecutable();
@@ -166,8 +167,13 @@ module.exports = function(kbox) {
       // Log start.
       log.info(kbox.util.format('Bringing boot2docker up [%s].', counter));
 
+      // Check if VB's modules are loaded
+      return bin.sh('lsmod | grep -q "vboxdrva[^_-]"')
+
       // Run provider command.
-      return shProvider(['up'])
+      .then(function() {
+        shProvider(['up']);
+      })
 
       // Wrap errors.
       .catch(function(err) {
@@ -176,6 +182,8 @@ module.exports = function(kbox) {
       })
 
       .then(function(output) {
+        console.log('Foo :' + output);
+	//bin.sh('sudo ' + meta.PROVIDER_DOWNLOAD_URL.linux.vb['debian'].recompile)
 
         // If B2D reports no IP found we will try to set it manually
         // @todo: tighter check here
