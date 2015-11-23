@@ -323,6 +323,23 @@ module.exports = function(kbox) {
   };
 
   /*
+   * Return status of boot2docker.
+   */
+  var getIso = function() {
+
+    // Get status.
+    return retry({max: 3}, function(counter) {
+      log.debug(format('Checking for new ISO [%s].', counter));
+      return shProvider(['download']);
+    })
+    // Trim off newline.
+    .then(function(status) {
+      return _.trim(status, '\n');
+    });
+
+  };
+
+  /*
    * Return boot2docker's IP address.
    */
   var getIp = function() {
@@ -528,6 +545,7 @@ module.exports = function(kbox) {
     engineConfig: getEngineConfig,
     getIp: getIp,
     getServerIps: getServerIps,
+    getIso: getIso,
     hasTasks: hasTasks,
     isDown: isDown,
     isInstalled: isInstalled,
