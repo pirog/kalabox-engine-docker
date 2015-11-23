@@ -95,8 +95,54 @@ module.exports = function(kbox) {
 
   };
 
+  /*
+   * Check to see if we need to recompile VirtualBox's modules
+   */
+  var requiresKernelRecompile = function() {
+    if (kbox.install.linuxOsInfo.getFlavor() === 'debian') {
+
+      return sh('lsmod | grep -q "vboxdrv[^_-]"')
+
+      .catch(function(err) {
+        //console.log('catch: ' +err);
+        return Promise.resolve(true);
+      })
+
+      .then(function(err) {
+        if (err) {
+          return Promise.resolve(true);
+        } else {
+          //console.log('then: ' +err);
+	  return Promise.resolve(false);
+        }
+      })
+    }
+    else {
+      Promise.resolve(false);
+    }
+  };
+
+  /*
+   * Recompile VirtualBox's kernel modules
+   */
+  var rebuildKernel = function() {
+    var _sh = kbox.core.deps.get('shell');
+    //var cmd = getRecompileCommand();
+    var cmd = '/etc/init.d/vboxdrv start';
+    return Promise.fromNode(function(cb) {
+      _sh.execAdmin(cmd, cb);
+    })
+
+    // 
+    .catch(function(err) {
+      // check to see if recompiling kernel failz
+    })
+  };
+
   // Build module function.
   return {
+    requiresKernelRecompile: requiresKernelRecompile,
+    rebuildKernel: rebuildKernel,
     sh: sh,
     getB2DBinPath: getB2DBinPath,
     getB2DExecutable: getB2DExecutable,

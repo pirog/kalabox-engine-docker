@@ -22,7 +22,6 @@ module.exports = function(kbox) {
   var bin = require('./lib/bin.js')(kbox);
   var env = require('./lib/env.js')(kbox);
   var net = require('./lib/net.js')(kbox);
-  var meta = require('./../lib/meta.js');
 
   // Get boot2docker and ssh executable path.
   var B2D_EXECUTABLE = bin.getB2DExecutable();
@@ -161,29 +160,35 @@ module.exports = function(kbox) {
    * Boot2docker up helper
    */
   var _up = function(opts) {
+    //opts.backoff = 5000;
     // Retry the upping
     return retry(opts, function(counter) {
 
       // Log start.
       log.info(kbox.util.format('Bringing boot2docker up [%s].', counter));
 
-      // Check if VB's modules are loaded
-      return bin.sh('lsmod | grep -q "vboxdrva[^_-]"')
-
       // Run provider command.
-      .then(function() {
-        shProvider(['up']);
-      })
+      return shProvider(['up'])
 
       // Wrap errors.
       .catch(function(err) {
         log.info('Bringing up boot2docker failed, retrying.', err);
-        throw new VError(err, 'Error bringing boot2docker up.');
+        return (bin.requiresKernelRecompile())
+
+        .then(function(needRebuild) {
+		//console.log('Foo: ' + needRebuild);
+          if (needRebuild) {
+            return bin.rebuildKernel();
+          }
+        })
+
+        .then(function(needRebuild) {
+          throw new VError(err, 'Error bringing boot2docker up.');
+        })
+
       })
 
       .then(function(output) {
-        console.log('Foo :' + output);
-	//bin.sh('sudo ' + meta.PROVIDER_DOWNLOAD_URL.linux.vb['debian'].recompile)
 
         // If B2D reports no IP found we will try to set it manually
         // @todo: tighter check here
