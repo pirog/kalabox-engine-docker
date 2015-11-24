@@ -70,16 +70,17 @@ module.exports = function(kbox) {
   /*
    * Docker config instance lazy loaded and cached singelton.
    */
-  var dockerConfigInstance = _.once(function() {
+  var dockerConfigInstance = function(opts) {
 
     // Log start.
     log.debug('Initializing docker config.');
 
     // Get engine config from provider.
-    return getProvider().call('engineConfig')
+    return getProvider().call('engineConfig', opts)
     // Register engine config dependency.
     .tap(function(engineConfig) {
       log.debug('Docker config initialized.');
+      kbox.core.deps.remove('engineConfig');
       kbox.core.deps.register('engineConfig', engineConfig);
     })
     // Wrap errors.
@@ -87,15 +88,15 @@ module.exports = function(kbox) {
       throw new VError(err, 'Error getting docker config.');
     });
 
-  });
+  };
 
   /*
    * Docker instance lazy loaded and cached singleton.
    */
-  var dockerInstance = _.once(function() {
+  var dockerInstance = function(opts) {
 
     // Get docker config.
-    return dockerConfigInstance()
+    return dockerConfigInstance(opts)
     // Initalize a dockerode object.
     .then(function(engineConfig) {
       log.debug('Initializing docker.', engineConfig);
@@ -110,7 +111,7 @@ module.exports = function(kbox) {
       throw new VError(err, 'Error initializing docker.');
     });
 
-  });
+  };
 
   /*
    * Return a containers name.
@@ -976,24 +977,17 @@ module.exports = function(kbox) {
    */
   var consumeBuildOrPullStream = function(stdout) {
 
-    return new Promise(function(fulfill, reject) {
-      // Make sure stream serves strings rather than buffers.
-      stdout.setEncoding('utf8');
-      stdout.on('data', function(data) {
-        try {
-          // Parse and log json.
-          var json = JSON.parse(data);
-          log.info(json);
-          if (json.error) {
-            reject(new Error(pp(json)));
-          }
-        } catch (err) {
-          // Error trying to parse json, so just treat it as a string.
-          log.info(data);
+    return dockerInstance()
+    .then(function(dockerInstance) {
+      return Promise.fromNode(function(cb) {
+        function finished(err, data) {
+          cb(err);
         }
+        function progress(evt) {
+          log.info(evt);
+        }
+        dockerInstance.modem.followProgress(stdout, finished, progress);
       });
-      // Fulfill promise when the stream is finished.
-      stdout.on('end', fulfill);
     });
 
   };
@@ -1083,7 +1077,9 @@ module.exports = function(kbox) {
     return kbox.util.internet.check()
     // Start pulling docker image.
     .then(function() {
-      return dockerInstance();
+      return dockerInstance({
+        timeout: 60 * 1000
+      });
     })
     // Pull the image.
     .then(function(dockerInstance) {
@@ -1094,8 +1090,31 @@ module.exports = function(kbox) {
           dockerInstance.pull(image.name, cb);
         })
         // Follow pull progress.
-        .then(consumeBuildOrPullStream);
-      });
+        .then(function(stream) {
+          return consumeBuildOrPullStream(stream);
+        })
+        // Make sure image pull was successful.
+        .then(function() {
+          // Get list of images.
+          return Promise.fromNode(function(cb) {
+            dockerInstance.listImages(cb);
+          })
+          // Find pulled image with same tag.
+          .then(function(data) {
+            return _.find(data, function(imageData) {
+              return _.find(imageData.RepoTags, function(tag) {
+                return image.name === tag;
+              });
+            });
+          })
+          // Throw an error if pulled image wasn't found.
+          .then(function(found) {
+            if (!found) {
+              throw new Error('Image failed to pull: ' + image.name);
+            }
+          });
+        });
+      }, {backoff: 5 * 1000});
     })
     // Log success.
     .tap(function() {
