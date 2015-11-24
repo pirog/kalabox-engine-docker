@@ -446,7 +446,7 @@ module.exports = function(kbox) {
    */
   var getEngineConfig = function(opts) {
 
-    var opts = opts || {};
+    opts = opts || {};
 
     // Get ip address of boot2docker.
     return getIp()
