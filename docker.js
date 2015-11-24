@@ -1103,7 +1103,6 @@ module.exports = function(kbox) {
           .then(function(data) {
             return _.find(data, function(imageData) {
               return _.find(imageData.RepoTags, function(tag) {
-                console.log('tag: ' + tag);
                 return image.name === tag;
               });
             });
