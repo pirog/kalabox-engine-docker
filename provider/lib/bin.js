@@ -102,6 +102,7 @@ module.exports = function(kbox) {
   var checkVBModules = function() {
     if (kbox.install.linuxOsInfo.getFlavor() === 'debian') {
 
+      // This is how /etc/init.d/vboxdrv checks if the modules are loaded
       return sh('lsmod | grep -q "vboxdrv[^_-]"')
 
       // Exit status != 0, modules are not loaded
@@ -125,7 +126,8 @@ module.exports = function(kbox) {
   /*
    * Recompile VirtualBox's kernel modules
    * 
-   * @todo: @jeffesquivels - Try to load VirtualBox's kernel modules first
+   * @todo: @jeffesquivels - Try to load VirtualBox's kernel modules and only
+   * recompile if that fails 
    */
   var bringVBModulesUp = function() {
     var _sh = kbox.core.deps.get('shell');
