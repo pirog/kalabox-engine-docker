@@ -444,7 +444,9 @@ module.exports = function(kbox) {
   /*
    * Return cached instance of engine config.
    */
-  var getEngineConfig = _.once(function() {
+  var getEngineConfig = function(opts) {
+
+    var opts = opts || {};
 
     // Get ip address of boot2docker.
     return getIp()
@@ -456,10 +458,14 @@ module.exports = function(kbox) {
         host: ip,
         port: '2375'
       };
+
+      _.extend(config, opts);
+
       return config;
+
     });
 
-  });
+  };
 
   /*
    * @todo: @pirog - What is this for?
