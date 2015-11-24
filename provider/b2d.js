@@ -176,7 +176,8 @@ module.exports = function(kbox) {
 
         .then(function(modulesAreUp) {
           if (!modulesAreUp) {
-            log.info('VirtualBox\'s kernel modules seem to be down. Trying to bring them up.', err);
+            log.info('VirtualBox\'s kernel modules seem to be down.' +
+                ' Trying to bring them up.', err);
             return bin.bringVBModulesUp();
           } else {
             // The problem was something else, let's just fail

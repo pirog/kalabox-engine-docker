@@ -126,13 +126,14 @@ module.exports = function(kbox) {
 
   /*
    * Recompile VirtualBox's kernel modules
-   * 
+   *
    * @todo: @jeffesquivels - Try to load VirtualBox's kernel modules and only
-   * recompile if that fails 
+   * recompile if that fails
    */
   var bringVBModulesUp = function() {
     var _sh = kbox.core.deps.get('shell');
-    var cmd = meta.PROVIDER_DOWNLOAD_URL.linux.vb[kbox.install.linuxOsInfo.getFlavor()].recompile;
+    var flavor = kbox.install.linuxOsInfo.getFlavor();
+    var cmd = meta.PROVIDER_DOWNLOAD_URL.linux.vb[flavor].recompile;
 
     return Promise.fromNode(function(cb) {
       _sh.execAdmin(cmd, cb);
@@ -148,20 +149,20 @@ module.exports = function(kbox) {
     })
 
     .then(function(output) {
-        if (_.includes(output, 'wrong')) {
-          // Recompilation failed
-          log.info('The modules couldn\'t be compiled. Dying now.', output);
-          return Promise.resolve(false);
-        } else {
-          return Promise.resolve(true);
-        }
+      if (_.includes(output, 'wrong')) {
+        // Recompilation failed
+        log.info('The modules couldn\'t be compiled. Dying now.', output);
+        return Promise.resolve(false);
+      } else {
+        return Promise.resolve(true);
+      }
     });
   };
 
   // Build module function.
   return {
-    checkVBModules: checkVBModules,  
-    bringVBModulesUp: bringVBModulesUp,  
+    checkVBModules: checkVBModules,
+    bringVBModulesUp: bringVBModulesUp,
     sh: sh,
     getB2DBinPath: getB2DBinPath,
     getB2DExecutable: getB2DExecutable,
