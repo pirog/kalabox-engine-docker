@@ -16,6 +16,7 @@ module.exports = function(kbox) {
 
   // Kalabox modules
   var Promise = kbox.Promise;
+  var meta = require('./meta.js');
 
   /*
    * Get directory for provider executable.
@@ -96,53 +97,68 @@ module.exports = function(kbox) {
   };
 
   /*
-   * Check to see if we need to recompile VirtualBox's modules
+   * Check to see if VirtualBox's modules are loaded
    */
-  var requiresKernelRecompile = function() {
+  var checkVBModules = function() {
     if (kbox.install.linuxOsInfo.getFlavor() === 'debian') {
 
       return sh('lsmod | grep -q "vboxdrv[^_-]"')
 
+      // Exit status != 0, modules are not loaded
       .catch(function(err) {
-        //console.log('catch: ' +err);
-        return Promise.resolve(true);
+        // Modules are not loaded
+        return Promise.resolve(false);
       })
 
-      .then(function(err) {
-        if (err) {
+      .then(function(modulesUp) {
+        if (modulesUp) {
           return Promise.resolve(true);
         } else {
-          //console.log('then: ' +err);
-	  return Promise.resolve(false);
+          return Promise.resolve(false);
         }
       })
-    }
-    else {
-      Promise.resolve(false);
+    } else {
+      Promise.resolve(true);
     }
   };
 
   /*
    * Recompile VirtualBox's kernel modules
+   * 
+   * @todo: @jeffesquivels - Try to load VirtualBox's kernel modules first
    */
-  var rebuildKernel = function() {
+  var bringVBModulesUp = function() {
     var _sh = kbox.core.deps.get('shell');
-    //var cmd = getRecompileCommand();
-    var cmd = '/etc/init.d/vboxdrv start';
+    var cmd = meta.PROVIDER_DOWNLOAD_URL.linux.vb[kbox.install.linuxOsInfo.getFlavor()].recompile;
+
     return Promise.fromNode(function(cb) {
       _sh.execAdmin(cmd, cb);
     })
 
-    // 
+    // The modules failed to recompile
+    // Actually, vboxdrv script exits with code = 0 even on failure,
+    // so this catch probably won't be ever executed
+    // Leaving this here just 'cause it can't hurt
     .catch(function(err) {
-      // check to see if recompiling kernel failz
+      log.info('The modules couldn\'t be compiled. Dying now.', err);
+      return Promise.resolve(false);
+    })
+
+    .then(function(output) {
+        if (_.includes(output, 'wrong')) {
+          // Recompilation failed
+          log.info('The modules couldn\'t be compiled. Dying now.', output);
+          return Promise.resolve(false);
+        } else {
+          return Promise.resolve(true);
+        }
     })
   };
 
   // Build module function.
   return {
-    requiresKernelRecompile: requiresKernelRecompile,
-    rebuildKernel: rebuildKernel,
+    checkVBModules: checkVBModules,  
+    bringVBModulesUp: bringVBModulesUp,  
     sh: sh,
     getB2DBinPath: getB2DBinPath,
     getB2DExecutable: getB2DExecutable,
