@@ -13,9 +13,11 @@ module.exports = function(kbox) {
 
   // NPM modules
   var VError = require('verror');
+  var _ = require('lodash');
 
   // Kalabox modules
   var Promise = kbox.Promise;
+  var meta = require('../../lib/meta.js');
 
   /*
    * Get directory for provider executable.
@@ -95,8 +97,72 @@ module.exports = function(kbox) {
 
   };
 
+  /*
+   * Check to see if VirtualBox's modules are loaded
+   */
+  var checkVBModules = function() {
+    if (kbox.install.linuxOsInfo.getFlavor() === 'debian') {
+
+      // This is how /etc/init.d/vboxdrv checks if the modules are loaded
+      return sh('lsmod | grep -q "vboxdrv[^_-]"')
+
+      // Exit status != 0, modules are not loaded
+      .catch(function(err) {
+        // Modules are not loaded
+        return Promise.resolve(false);
+      })
+
+      .then(function(modulesUp) {
+        if (modulesUp) {
+          return Promise.resolve(true);
+        } else {
+          return Promise.resolve(false);
+        }
+      });
+    } else {
+      Promise.resolve(true);
+    }
+  };
+
+  /*
+   * Recompile VirtualBox's kernel modules
+   *
+   * @todo: @jeffesquivels - Try to load VirtualBox's kernel modules and only
+   * recompile if that fails
+   */
+  var bringVBModulesUp = function() {
+    var _sh = kbox.core.deps.get('shell');
+    var flavor = kbox.install.linuxOsInfo.getFlavor();
+    var cmd = meta.PROVIDER_DOWNLOAD_URL.linux.vb[flavor].recompile;
+
+    return Promise.fromNode(function(cb) {
+      _sh.execAdmin(cmd, cb);
+    })
+
+    // The modules failed to recompile
+    // Actually, vboxdrv script exits with code = 0 even on failure,
+    // so this catch probably won't be ever executed
+    // Leaving this here just 'cause it can't hurt
+    .catch(function(err) {
+      log.info('The modules couldn\'t be compiled. Dying now.', err);
+      return Promise.resolve(false);
+    })
+
+    .then(function(output) {
+      if (_.includes(output, 'wrong')) {
+        // Recompilation failed
+        log.info('The modules couldn\'t be compiled. Dying now.', output);
+        return Promise.resolve(false);
+      } else {
+        return Promise.resolve(true);
+      }
+    });
+  };
+
   // Build module function.
   return {
+    checkVBModules: checkVBModules,
+    bringVBModulesUp: bringVBModulesUp,
     sh: sh,
     getB2DBinPath: getB2DBinPath,
     getB2DExecutable: getB2DExecutable,
