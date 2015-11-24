@@ -19,7 +19,7 @@
   },
   "dependencies": {
     "chalk": "~0.5.1",
-    "dockerode": "~2.0.3",
+    "dockerode": "~2.2.3",
     "fs-extra": "^0.18.2",
     "lodash": "^3.10.1",
     "memorystream": "^0.3.1",
