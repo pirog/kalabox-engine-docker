@@ -192,7 +192,7 @@ module.exports = function(kbox) {
           } else {
             throw new VError('VirtualBox\'s modules seem to be up. Retrying.');
           }
-        })
+        });
 
       })
 

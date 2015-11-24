@@ -13,6 +13,7 @@ module.exports = function(kbox) {
 
   // NPM modules
   var VError = require('verror');
+  var _ = require('lodash');
 
   // Kalabox modules
   var Promise = kbox.Promise;
@@ -117,7 +118,7 @@ module.exports = function(kbox) {
         } else {
           return Promise.resolve(false);
         }
-      })
+      });
     } else {
       Promise.resolve(true);
     }
@@ -154,7 +155,7 @@ module.exports = function(kbox) {
         } else {
           return Promise.resolve(true);
         }
-    })
+    });
   };
 
   // Build module function.
