@@ -171,8 +171,30 @@ module.exports = function(kbox) {
 
       // Wrap errors.
       .catch(function(err) {
-        log.info('Bringing up boot2docker failed, retrying.', err);
-        throw new VError(err, 'Error bringing boot2docker up.');
+        // Let's see if this problem is caused by missing VB's kernel modules
+        return (bin.checkVBModules())
+
+        .then(function(modulesAreUp) {
+          if (!modulesAreUp) {
+            log.info('VirtualBox\'s kernel modules seem to be down.' +
+                ' Trying to bring them up.', err);
+            return bin.bringVBModulesUp();
+          } else {
+            // The problem was something else, let's just fail
+            log.info('Bringing up boot2docker failed, retrying.', err);
+            throw new VError(err, 'Error bringing boot2docker up.');
+          }
+        })
+
+        .then(function(modulesAreUp) {
+          if (!modulesAreUp) {
+            log.info('Bringing up VirtualBox\'s modules failed unrecoverably.');
+            throw new VError(err, 'Error bringing VirtualBox\'s modules up.');
+          } else {
+            throw new VError('VirtualBox\'s modules seem to be up. Retrying.');
+          }
+        });
+
       })
 
       .then(function(output) {
