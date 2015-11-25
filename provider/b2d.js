@@ -340,10 +340,6 @@ module.exports = function(kbox) {
     return retry({max: 3}, function(counter) {
       log.debug(format('Checking for new ISO [%s].', counter));
       return shProvider(['download']);
-    })
-    // Trim off newline.
-    .then(function(status) {
-      return _.trim(status, '\n');
     });
 
   };
