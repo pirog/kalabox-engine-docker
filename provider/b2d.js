@@ -282,39 +282,6 @@ module.exports = function(kbox) {
   };
 
   /*
-   * Bring boot2docker down.
-   */
-  var down = function(opts) {
-
-    // Default settings for max retries.
-    opts = opts || {};
-    opts.max = opts.max || opts.maxRetries || 5;
-
-    // Emit pre down event.
-    return Promise.try(kbox.core.events.emit, 'pre-down')
-    // Retry to shutdown if an error occurs.
-    .then(function() {
-      return retry(opts, function(counter) {
-        log.info(format('Shutting down [%s].', counter));
-        return shProvider(['down']);
-      });
-    })
-    // Log success.
-    .then(function() {
-      log.info('Shut down successful.');
-    })
-    // Emit post down event.
-    .then(function() {
-      return kbox.core.events.emit('post-down');
-    })
-    // Wrap errors.
-    .catch(function(err) {
-      throw new VError(err, 'Error while shutting down.');
-    });
-
-  };
-
-  /*
    * Return status of boot2docker.
    */
   var getStatus = function() {
@@ -327,6 +294,48 @@ module.exports = function(kbox) {
     // Trim off newline.
     .then(function(status) {
       return _.trim(status, '\n');
+    });
+
+  };
+
+  /*
+   * Bring boot2docker down.
+   */
+  var down = function(opts) {
+
+    // Default settings for max retries.
+    opts = opts || {};
+    opts.max = opts.max || opts.maxRetries || 5;
+
+    // Get provider status.
+    return getStatus()
+    // Shut provider down if its status is running.
+    .then(function(status) {
+      if (status === 'running') {
+        // Emit pre down event.
+        return Promise.try(kbox.core.events.emit, 'pre-down')
+        // Retry to shutdown if an error occurs.
+        .then(function() {
+          return retry(opts, function(counter) {
+            log.info(format('Shutting down [%s].', counter));
+            return shProvider(['down']);
+          });
+        })
+        // Log success.
+        .then(function() {
+          log.info('Shutdown successful.');
+        })
+        // Emit post down event.
+        .then(function() {
+          return kbox.core.events.emit('post-down');
+        });
+      } else {
+        log.info('Already shutdown.');
+      }
+    })
+    // Wrap errors.
+    .catch(function(err) {
+      throw new VError(err, 'Error while shutting down.');
     });
 
   };
