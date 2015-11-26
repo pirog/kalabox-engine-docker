@@ -244,24 +244,25 @@ module.exports = function(kbox) {
       return getStatus();
     })
 
-    // Do OS specific things and checks
-    .then(function(status) {
-
-      // Manually do VBOX dns handling
+    // Manually do VBOX dns handling
+    .tap(function(status) {
       if (status !== 'running') {
         return net.setHostDnsResolver(opts);
       }
+    })
 
-      // Manually do VBOX file sharing on nix
+    // Manually do VBOX file sharing on nix
+    .tap(function(status) {
       if (process.platform === 'linux' && status !== 'running') {
         return net.linuxSharing(opts);
       }
+    })
 
-      // Verify our networking is setup correctly on windows
-      else if (process.platform === 'win32') {
+    // Verify our networking is setup correctly on windows
+    .then(function() {
+      if (process.platform === 'win32') {
         return net.verifyWindowsNetworking();
       }
-
     })
 
     // Bring boot2docker up.
