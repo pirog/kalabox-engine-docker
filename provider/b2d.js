@@ -130,7 +130,7 @@ module.exports = function(kbox) {
    */
   var init = function(opts) {
 
-    return Promise.retry(opts, function(counter) {
+    return Promise.retry(function(counter) {
 
       // Log start.
       log.info(kbox.util.format('Initializing boot2docker [%s].', counter));
@@ -158,9 +158,9 @@ module.exports = function(kbox) {
   /*
    * Boot2docker up helper
    */
-  var _up = function(opts) {
+  var _up = function() {
     // Retry the upping
-    return Promise.retry(opts, function(counter) {
+    return Promise.retry(function(counter) {
 
       // Log start.
       log.info(kbox.util.format('Bringing boot2docker up [%s].', counter));
@@ -210,7 +210,7 @@ module.exports = function(kbox) {
 
           // Retry up so we can grab the correct adapter
           .then(function() {
-            return up({max:3});
+            return up();
           });
 
         }
@@ -223,9 +223,6 @@ module.exports = function(kbox) {
    * Bring boot2docker up.
    */
   var up = function(opts) {
-
-    // Default settings for max retries.
-    opts.max = opts.max || opts.maxRetries || 3;
 
     // Log start.
     log.info('Starting up.', opts);
@@ -246,14 +243,14 @@ module.exports = function(kbox) {
     // Manually do VBOX dns handling
     .tap(function(status) {
       if (status !== 'running') {
-        return net.setHostDnsResolver(opts);
+        return net.setHostDnsResolver();
       }
     })
 
     // Manually do VBOX file sharing on nix
     .tap(function(status) {
       if (process.platform === 'linux' && status !== 'running') {
-        return net.linuxSharing(opts);
+        return net.linuxSharing();
       }
     })
 
@@ -266,7 +263,7 @@ module.exports = function(kbox) {
 
     // Bring boot2docker up.
     .then(function() {
-      return _up(opts);
+      return _up();
     })
 
     // Log success.
@@ -287,7 +284,7 @@ module.exports = function(kbox) {
   var getStatus = function() {
 
     // Get status.
-    return Promise.retry({max: 3}, function(counter) {
+    return Promise.retry(function(counter) {
       log.debug(format('Checking status [%s].', counter));
       return shProvider(['status']);
     })
@@ -301,11 +298,7 @@ module.exports = function(kbox) {
   /*
    * Bring boot2docker down.
    */
-  var down = function(opts) {
-
-    // Default settings for max retries.
-    opts = opts || {};
-    opts.max = opts.max || opts.maxRetries || 5;
+  var down = function() {
 
     // Get provider status.
     return getStatus()
@@ -316,7 +309,7 @@ module.exports = function(kbox) {
         return Promise.try(kbox.core.events.emit, 'pre-down')
         // Retry to shutdown if an error occurs.
         .then(function() {
-          return Promise.retry(opts, function(counter) {
+          return Promise.retry(function(counter) {
             log.info(format('Shutting down [%s].', counter));
             return shProvider(['down']);
           });
@@ -346,7 +339,7 @@ module.exports = function(kbox) {
   var getIso = function() {
 
     // Get status.
-    return Promise.retry({max: 3}, function(counter) {
+    return Promise.retry(function(counter) {
       log.debug(format('Checking for new ISO [%s].', counter));
       return shProvider(['download']);
     });
@@ -359,7 +352,7 @@ module.exports = function(kbox) {
   var getIp = function() {
 
     // Get IP address.
-    return Promise.retry({max: 3}, function() {
+    return Promise.retry(function() {
       return shProvider(['ip']);
     })
     // Remove endline.
@@ -374,7 +367,7 @@ module.exports = function(kbox) {
         // Try to manually set to correct and then try to grab IP again
         return shProviderSSH(setProviderIPCmd())
         .then(function() {
-          return up({max:3});
+          return up();
         })
         .then(function() {
           return getIp();

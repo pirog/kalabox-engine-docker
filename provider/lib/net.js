@@ -228,10 +228,10 @@ module.exports = function(kbox) {
   /*
    * Set up sharing on Linux
    */
-  var linuxSharing = function(opts) {
+  var linuxSharing = function() {
 
     // Retry the linxu sharing a few times
-    return Promise.retry(opts, function(counter) {
+    return Promise.retry(function(counter) {
 
       // VBOXMANAGE sharing command
       // @todo: less hardcoding?
@@ -263,10 +263,10 @@ module.exports = function(kbox) {
   /*
    * Set up dns resolution
    */
-  var setHostDnsResolver = function(opts) {
+  var setHostDnsResolver = function() {
 
     // Retry the linxu sharing a few times
-    return Promise.retry(opts, function(/*counter*/) {
+    return Promise.retry(function(/*counter*/) {
 
       // VBOXMANAGE dns resolver
       var cmd = [
