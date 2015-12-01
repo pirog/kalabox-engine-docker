@@ -429,7 +429,7 @@ module.exports = function(kbox) {
     })
 
     // If there is an error then we probably need to run the install
-    .catch(function(err) {
+    .catch(function(/*err*/) {
       return false;
     });
 
@@ -463,7 +463,7 @@ module.exports = function(kbox) {
       }
     })
     // Which returned an error, this should mean it does not exist.
-    .catch(function(err) {
+    .catch(function(/*err*/) {
       return false;
     });
 

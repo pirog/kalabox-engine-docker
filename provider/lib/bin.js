@@ -107,7 +107,7 @@ module.exports = function(kbox) {
       return sh('lsmod | grep -q "vboxdrv[^_-]"')
 
       // Exit status != 0, modules are not loaded
-      .catch(function(err) {
+      .catch(function(/*err*/) {
         // Modules are not loaded
         return Promise.resolve(false);
       })
