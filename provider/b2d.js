@@ -15,7 +15,6 @@ module.exports = function(kbox) {
   // NPM modules
   var VError = require('verror');
   var _ = require('lodash');
-  var retry = require('retry-bluebird');
 
   // Kalabox modules
   var Promise = kbox.Promise;
@@ -131,7 +130,7 @@ module.exports = function(kbox) {
    */
   var init = function(opts) {
 
-    return retry(opts, function(counter) {
+    return Promise.retry(opts, function(counter) {
 
       // Log start.
       log.info(kbox.util.format('Initializing boot2docker [%s].', counter));
@@ -161,7 +160,7 @@ module.exports = function(kbox) {
    */
   var _up = function(opts) {
     // Retry the upping
-    return retry(opts, function(counter) {
+    return Promise.retry(opts, function(counter) {
 
       // Log start.
       log.info(kbox.util.format('Bringing boot2docker up [%s].', counter));
@@ -288,7 +287,7 @@ module.exports = function(kbox) {
   var getStatus = function() {
 
     // Get status.
-    return retry({max: 3}, function(counter) {
+    return Promise.retry({max: 3}, function(counter) {
       log.debug(format('Checking status [%s].', counter));
       return shProvider(['status']);
     })
@@ -317,7 +316,7 @@ module.exports = function(kbox) {
         return Promise.try(kbox.core.events.emit, 'pre-down')
         // Retry to shutdown if an error occurs.
         .then(function() {
-          return retry(opts, function(counter) {
+          return Promise.retry(opts, function(counter) {
             log.info(format('Shutting down [%s].', counter));
             return shProvider(['down']);
           });
@@ -347,7 +346,7 @@ module.exports = function(kbox) {
   var getIso = function() {
 
     // Get status.
-    return retry({max: 3}, function(counter) {
+    return Promise.retry({max: 3}, function(counter) {
       log.debug(format('Checking for new ISO [%s].', counter));
       return shProvider(['download']);
     });
@@ -360,7 +359,7 @@ module.exports = function(kbox) {
   var getIp = function() {
 
     // Get IP address.
-    return retry({max: 3}, function() {
+    return Promise.retry({max: 3}, function() {
       return shProvider(['ip']);
     })
     // Remove endline.

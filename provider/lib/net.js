@@ -9,7 +9,6 @@ module.exports = function(kbox) {
 
   // NPM modules
   var _ = require('lodash');
-  var retry = require('retry-bluebird');
   var VError = require('verror');
 
   // Kalabox modules
@@ -232,7 +231,7 @@ module.exports = function(kbox) {
   var linuxSharing = function(opts) {
 
     // Retry the linxu sharing a few times
-    return retry(opts, function(counter) {
+    return Promise.retry(opts, function(counter) {
 
       // VBOXMANAGE sharing command
       // @todo: less hardcoding?
@@ -267,7 +266,7 @@ module.exports = function(kbox) {
   var setHostDnsResolver = function(opts) {
 
     // Retry the linxu sharing a few times
-    return retry(opts, function(/*counter*/) {
+    return Promise.retry(opts, function(/*counter*/) {
 
       // VBOXMANAGE dns resolver
       var cmd = [
