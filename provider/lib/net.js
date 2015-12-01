@@ -155,7 +155,7 @@ module.exports = function(kbox) {
       return shell(cmd)
 
       // Need to catch findstr null reporting as error
-      .catch(function(err) {
+      .catch(function(/*err*/) {
         // @todo: something more precise here
       })
 
@@ -267,7 +267,7 @@ module.exports = function(kbox) {
   var setHostDnsResolver = function(opts) {
 
     // Retry the linxu sharing a few times
-    return retry(opts, function(counter) {
+    return retry(opts, function(/*counter*/) {
 
       // VBOXMANAGE dns resolver
       var cmd = [

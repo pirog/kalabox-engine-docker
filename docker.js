@@ -24,15 +24,9 @@ module.exports = function(kbox) {
   var MemoryStream = require('memorystream');
   var VError = require('verror');
   var _ = require('lodash');
-  var async = require('async');
-  var retry = require('retry-bluebird');
-  var uuid = require('uuid');
 
   // Kalabox Modules
   var Promise = kbox.Promise;
-
-  // Save for later.
-  var self = this;
 
   // Create logging functions.
   var log = kbox.core.log.make('DOCKER');
@@ -212,22 +206,6 @@ module.exports = function(kbox) {
     .then(function(results) {
       assert(results.length < 2);
       return _.head(results);
-    });
-
-  };
-
-  /*
-   * Find a generic container and throw an error if it doesn't exist.
-   */
-  var findGenericContainerThrows = function(cid) {
-
-    // Find a generic container with given cid.
-    return findGenericContainer(cid)
-    // Throw an error if a container was not found.
-    .tap(function(container) {
-      if (!container) {
-        throw new Error(format('The container %s does not exist!', cid));
-      }
     });
 
   };
@@ -980,7 +958,7 @@ module.exports = function(kbox) {
     return dockerInstance()
     .then(function(dockerInstance) {
       return Promise.fromNode(function(cb) {
-        function finished(err, data) {
+        function finished(err/*, data*/) {
           cb(err);
         }
         function progress(evt) {
