@@ -17,7 +17,7 @@ module.exports = function(kbox) {
 
   // Kalabox modules
   var Promise = kbox.Promise;
-  var meta = require('../../lib/meta.js');
+  var meta = require('./../meta.js');
 
   /*
    * Get directory for provider executable.

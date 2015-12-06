@@ -48,7 +48,7 @@ module.exports = function(kbox) {
 
     // Load.
     return Promise.try(function() {
-      return require('./provider/b2d.js')(kbox);
+      return require('./provider/b2d/b2d.js')(kbox);
     })
     // Log success.
     .tap(function() {
