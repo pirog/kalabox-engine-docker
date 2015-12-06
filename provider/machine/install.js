@@ -15,7 +15,7 @@ module.exports = function(kbox) {
 
   // Constants
   var PROVIDER_VB_VERSION = '5.0.10';
-  var PROVIDER_B2D_ISO = '1.9.1';
+  var PROVIDER_KALABOX_ISO = '1.9.1';
   var PROVIDER_MACHINE_VERSION = '0.5.0';
 
   /*
@@ -41,23 +41,25 @@ module.exports = function(kbox) {
           state.downloads.push(meta.PROVIDER_DOWNLOAD_URL[platform].vb);
         }
 
+        // @todo: need to grab mysgit on windows
+
       };
     });
   }
 
   /*
-   * Installs the b2d bin into the correct location
+   * Installs the machine bin into the correct location
    */
   if (util.needsMachine()) {
     kbox.install.registerStep(function(step) {
-      step.name = 'engine-docker-provider-b2d';
+      step.name = 'engine-docker-provider-machine';
       step.deps = ['core-downloads'];
       step.subscribes = ['engine-up'];
-      step.description = 'Setting up the B2D binary...';
-      step.all.linux = function(state, done) {
+      step.description = 'Setting up the docker machine...';
+      step.all = function(state, done) {
 
-        // Install the profile
-        util.installB2DLinux(state);
+        // Install the machine
+        util.installMachine(state);
 
         // We need to do this to make sure the b2d bin is good before we
         // use it
@@ -65,7 +67,9 @@ module.exports = function(kbox) {
 
         .then(function() {
           // Update our current install
-          state.updateCurrentInstall({PROVIDER_B2D_VERSION: '1.8.0'});
+          state.updateCurrentInstall({
+            PROVIDER_MACHINE_VERSION: PROVIDER_MACHINE_VERSION
+          });
         })
 
         // next step
@@ -101,7 +105,7 @@ module.exports = function(kbox) {
             state.fail(state, 'Cannot get your Mac volume UUID!');
           }
 
-          // Add the install B2D command if we need to
+          // Add the install VM command if we need to
           if (util.needsVB()) {
 
             // Get package location
@@ -148,7 +152,7 @@ module.exports = function(kbox) {
       step.all.win32 = function(state) {
 
         // Add the install B2D command if we need to
-        if (util.needsB2D()) {
+        if (util.needsVB()) {
 
           // Get the B2D pkg location
           var pkgDir = kbox.util.disk.getTempDir();
@@ -159,7 +163,10 @@ module.exports = function(kbox) {
           // Build the install command and add it
           var cmd = kbox.util.pkg.installCmd(pkg, infFile);
           state.adminCommands.push(cmd);
+
         }
+
+        // @todo: need to install mysysgit as well
 
       };
 
@@ -195,12 +202,12 @@ module.exports = function(kbox) {
   /*
    * Attempt to update our B2D iso if needed
    */
-  if (util.needsB2DIsoUpdate()) {
+  if (util.needsKalaboxIsoUpdate()) {
     kbox.install.registerStep(function(step) {
       step.name = 'engine-docker-update-iso';
       //step.deps = ['engine-docker-verify-admin'];
       step.subscribes = ['engine-up'];
-      step.description = 'Updating B2D Iso';
+      step.description = 'Updating Kalabox Iso';
       step.all = function(state, done) {
 
         // Make sure engine is down
@@ -213,7 +220,9 @@ module.exports = function(kbox) {
 
         // Update the install state
         .then(function() {
-          state.updateCurrentInstall({PROVIDER_B2D_ISO: PROVIDER_B2D_ISO});
+          state.updateCurrentInstall({
+            PROVIDER_KALABOX_ISO: PROVIDER_KALABOX_ISO
+          });
         })
 
         // Next step
@@ -231,11 +240,6 @@ module.exports = function(kbox) {
     step.deps = ['engine-docker-verify-admin'];
     step.description = 'Setting up and activating the engine...';
     step.all = function(state, done) {
-
-      // Update SSH keys if needed
-      if (util.updateKeys(state)) {
-        state.updateCurrentInstall({PROVIDER_B2D_KEYS: true});
-      }
 
       // Just set the VM disk size to be the same as the total disk size.
       return kbox.util.disk.getDiskStatus()

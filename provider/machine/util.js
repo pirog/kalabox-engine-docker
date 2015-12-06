@@ -82,16 +82,16 @@ module.exports = function(kbox) {
    * Helper function to assess whether we need to add in commands
    */
   var needsAdminCommands = function() {
-    return needsVB() || needsMachine();
+    return needsVB();
   };
 
   /*
    * Helper function to determine whether we need to run linux DNS commands
    */
-  var needsB2DIsoUpdate = function() {
+  var needsKalaboxIsoUpdate = function() {
 
     // Get some state info
-    var neverUpdated = getCurrentInstall().PROVIDER_B2D_ISO === undefined;
+    var neverUpdated = getCurrentInstall().PROVIDER_KALABOX_ISO === undefined;
     var hasMachine = getCurrentInstall().PROVIDER_MACHINE_VERSION !== undefined;
 
     if (!hasMachine) {
@@ -103,50 +103,42 @@ module.exports = function(kbox) {
     }
 
     // Otherwise return our normal compare
-    return getProUp('PROVIDER_B2D_ISO') ;
+    return getProUp('PROVIDER_KALABOX_ISO') ;
 
   };
 
   /*
    * Helper function to assess whether we need to grab a new vb
    */
-  var installB2DLinux = function(state) {
+  var installMachine = function(state) {
 
     // Get temp path
     var downloadDir = kbox.util.disk.getTempDir();
 
-    // Get the b2d bin location
-    var b2d = meta.PROVIDER_DOWNLOAD_URL.linux.b2d;
-    var b2dBin = path.join(downloadDir, path.basename(b2d));
-
     // Destination path
     var sysConfRoot = kbox.core.deps.get('config').sysConfRoot;
-    var b2dBinDest = path.join(sysConfRoot, 'bin', 'boot2docker');
+    var machineBinDest = path.join(sysConfRoot, 'bin');
 
-    // Need to do it this way if the user is moving a file across
-    // partitions
-    var is = fs.createReadStream(b2dBin);
-    var os = fs.createWriteStream(b2dBinDest);
-    is.pipe(os);
-
-    // debug
-    state.log.debug('INSTALLING B2DBIN FROM => ' + b2dBin);
-    state.log.debug('INSTALLING B2DBIN TO => ' + b2dBinDest);
-
-    // Execute perm on complete
-    is.on('end', function() {
-      fs.chmodSync(b2dBinDest, '0755');
+    // Move all docker-machine* files over to the kbox bin location
+    _.forEach(fs.readdirSync(downloadDir), function(file) {
+      if (_.includes(file, 'docker-machine')) {
+        var source = path.join(downloadDir, file);
+        var dest = path.join(machineBinDest, file);
+        state.log.debug('INSTALLING ' + file + ' FROM => ' + downloadDir);
+        fs.copySync(source, dest);
+        state.log.debug('INSTALLED ' + file + ' TO => ' + machineBinDest);
+      }
     });
 
   };
 
   return {
     needsDownloads: needsDownloads,
-    needsB2DIsoUpdate: needsB2DIsoUpdate,
+    needsKalaboxIsoUpdate: needsKalaboxIsoUpdate,
     needsAdminCommands: needsAdminCommands,
     needsVB: needsVB,
     needsMachine: needsMachine,
-    installB2DLinux: installB2DLinux
+    installMachine: installMachine
   };
 
 };
