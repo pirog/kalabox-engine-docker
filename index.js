@@ -20,7 +20,7 @@ module.exports = function(kbox) {
 
   // Get the provider we need and then load its install routinezzz
   var provider = kbox.core.deps.get('globalConfig').provider;
-  var providerPath = path.join('provider', provider, 'install.js');
-  load('./' + providerPath);
+  var providerInstallerPath = path.join('provider', provider, 'install.js');
+  load('./' + providerInstallerPath);
 
 };

@@ -16,7 +16,7 @@ module.exports = function(kbox) {
   // Constants
   var PROVIDER_VB_VERSION = '5.0.10';
   var PROVIDER_KALABOX_ISO = '1.9.1';
-  var PROVIDER_MACHINE_VERSION = '0.5.0';
+  var PROVIDER_MACHINE_VERSION = '0.5.2';
 
   /*
    * Adds the appropriate downloads to our list
@@ -61,18 +61,17 @@ module.exports = function(kbox) {
         // Install the machine
         util.installMachine(state);
 
-        // We need to do this to make sure the b2d bin is good before we
-        // use it
+        // We need to do this to make sure the machine bin is good before we use it
         return Promise.delay(2000)
 
+        // Update our current install
         .then(function() {
-          // Update our current install
           state.updateCurrentInstall({
             PROVIDER_MACHINE_VERSION: PROVIDER_MACHINE_VERSION
           });
         })
 
-        // next step
+        // Next step
         .nodeify(done);
 
       };
@@ -205,24 +204,32 @@ module.exports = function(kbox) {
   if (util.needsKalaboxIsoUpdate()) {
     kbox.install.registerStep(function(step) {
       step.name = 'engine-docker-update-iso';
-      //step.deps = ['engine-docker-verify-admin'];
       step.subscribes = ['engine-up'];
-      step.description = 'Updating Kalabox Iso';
+      step.description = 'Updating Kalabox ISO if needed...';
       step.all = function(state, done) {
 
-        // Make sure engine is down
-        return kbox.engine.provider().call('down')
+        // Make sure we are installed
+        return kbox.engine.provider().call('isInstalled')
 
-        // Try to do the iso update
-        .then(function() {
-          return kbox.engine.provider().call('getIso');
-        })
+        // If we are installed then we are clear to update
+        .then(function(installed) {
+          if (installed) {
 
-        // Update the install state
-        .then(function() {
-          state.updateCurrentInstall({
-            PROVIDER_KALABOX_ISO: PROVIDER_KALABOX_ISO
-          });
+            // Upgrade demands we are up
+            return kbox.engine.provider().call('up')
+
+            // Try to do the iso update
+            .then(function() {
+              return kbox.engine.provider().call('getIso');
+            })
+
+            // Update the install state
+            .then(function() {
+              state.updateCurrentInstall({
+                PROVIDER_KALABOX_ISO: PROVIDER_KALABOX_ISO
+              });
+            });
+          }
         })
 
         // Next step

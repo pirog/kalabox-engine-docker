@@ -44,19 +44,24 @@ module.exports = function(kbox) {
   var getProvider = _.once(function() {
 
     // Log.
-    log.debug('Initializing provider.');
+    var provider = kbox.core.deps.get('globalConfig').provider;
+    log.debug('Initializing ' + provider + ' provider.');
 
     // Load.
     return Promise.try(function() {
-      return require('./provider/b2d/b2d.js')(kbox);
+      // Get the provider we need and then load its install routinezzz
+      var providerPath = path.join('provider', provider, provider + '.js');
+      return require('./' + providerPath)(kbox);
     })
+
     // Log success.
     .tap(function() {
-      log.debug('Provider initialized.');
+      log.debug('Provider ' + provider + ' initialized.');
     })
+
     // Wrap errors.
     .catch(function(err) {
-      throw new VError(err, 'Failure initializing provider.');
+      throw new VError(err, 'Failure initializing ' + provider + '!');
     });
 
   });
