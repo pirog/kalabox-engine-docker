@@ -150,7 +150,9 @@ module.exports = function(kbox) {
         '--virtualbox-boot2docker-url ' + DEFAULT_ISO,
         '--virtualbox-memory ' + DEFAULT_MEMORY,
         '--virtualbox-hostonly-cidr ' + DEFAULT_HOST_CIDR,
-        '--engine-opt bip=' + DEFAULT_DOCKER_BIP,
+        // @todo: uncomment this in docker machine 0.5.3
+        // '--virtualbox-host-dns-resolver',
+        '--engine-opt bip=' + DEFAULT_DOCKER_BIP
       ];
 
       // Add DNS
@@ -201,6 +203,7 @@ module.exports = function(kbox) {
       })
 
       // Manually do VBOX dns handling
+      // @todo: remove this when docker machine >= 0.5.3
       .then(function() {
         return net.setHostDnsResolver();
       })
