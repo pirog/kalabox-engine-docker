@@ -175,7 +175,7 @@ module.exports = function(kbox) {
           state.adminCommands.push(extractCmd);
 
           // Build the install command
-          var vbInstallOptions = ['/qn', '/passive', '/quiet'];
+          var vbInstallOptions = ['/qn', '/passive'];
           // Split into parts VIRTUALBOX|VERSION|RELEASE|ARCH
           var pts = vb.split('-');
           var msiName = [pts[0], pts[1], 'r' + pts[2], 'MultiArch_amd64.msi'];
