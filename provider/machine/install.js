@@ -38,7 +38,8 @@ module.exports = function(kbox) {
         }
 
         // Only grab VirtualBox if needed
-        if (util.needsVB()) {
+        // @todo: On linux we install with normal package manager
+        if (process.platform !== 'linux' && util.needsVB()) {
           state.downloads.push(meta.PROVIDER_DOWNLOAD_URL[platform].vb);
         }
 

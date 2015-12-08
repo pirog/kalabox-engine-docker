@@ -46,8 +46,8 @@ module.exports = {
           'recompile': '/usr/lib/virtualbox/vboxdrv.sh setup'
         }
       },
-      b2d: 'https://github.com/boot2docker/boot2docker-cli/releases/download/' +
-        'v1.8.0/boot2docker-v1.8.0-linux-amd64'
+      machine: 'https://github.com/docker/machine/releases/download/v' +
+        PROVIDER_MACHINE_VERSION + '/docker-machine_linux-amd64.zip'
     },
     win32: {
       vb: 'http://download.virtualbox.org/virtualbox/' + PROVIDER_VB_VERSION +
