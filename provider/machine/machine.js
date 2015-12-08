@@ -515,9 +515,6 @@ module.exports = function(kbox) {
         .replace('C:/', 'c:/')
         .replace('c:/', '/c/');
     }
-    else if (process.platform === 'linux')  {
-      bind = path.replace('/home', '/Users');
-    }
     return bind;
   };
 
