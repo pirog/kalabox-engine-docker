@@ -18,7 +18,7 @@ module.exports = function(kbox) {
   var config = kbox.core.deps.get('globalConfig');
 
   // B2D
-  var b2d = require('./../provider/b2d.js')(kbox);
+  var b2d = require('./b2d.js')(kbox);
 
   /*
    * Return some info about the current state of the kalabox installation

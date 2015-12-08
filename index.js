@@ -3,6 +3,7 @@
 module.exports = function(kbox) {
 
   var VError = require('verror');
+  var path = require('path');
 
   var load = function(s) {
 
@@ -14,7 +15,12 @@ module.exports = function(kbox) {
 
   };
 
+  // Load our tasks
   load('./lib/tasks.js');
-  load('./lib/install.js');
+
+  // Get the provider we need and then load its install routinezzz
+  var provider = kbox.core.deps.get('globalConfig').provider;
+  var providerInstallerPath = path.join('provider', provider, 'install.js');
+  load('./' + providerInstallerPath);
 
 };
