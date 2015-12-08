@@ -72,17 +72,24 @@ module.exports = function(kbox) {
   };
 
   /*
+   * Helper function to assess whether we need to grab a new vb
+   */
+  var needsMsysgit = function() {
+    return getProUp('PROVIDER_MSYSGIT_VERSION');
+  };
+
+  /*
    * Helper function to assess whether we need to grab downloads
    */
   var needsDownloads = function() {
-    return needsVB() || needsMachine();
+    return needsVB() || needsMachine() || needsMsysgit();
   };
 
   /*
    * Helper function to assess whether we need to add in commands
    */
   var needsAdminCommands = function() {
-    return needsVB();
+    return needsVB() || needsMsysgit();
   };
 
   /*
@@ -125,7 +132,7 @@ module.exports = function(kbox) {
         var source = path.join(downloadDir, file);
         var dest = path.join(machineBinDest, file);
         state.log.debug('INSTALLING ' + file + ' FROM => ' + downloadDir);
-        fs.copySync(source, dest);
+        fs.copySync(source, dest, {clobber: true});
         state.log.debug('INSTALLED ' + file + ' TO => ' + machineBinDest);
       }
     });
@@ -137,6 +144,7 @@ module.exports = function(kbox) {
     needsKalaboxIsoUpdate: needsKalaboxIsoUpdate,
     needsAdminCommands: needsAdminCommands,
     needsVB: needsVB,
+    needsMsysgit: needsMsysgit,
     needsMachine: needsMachine,
     installMachine: installMachine
   };

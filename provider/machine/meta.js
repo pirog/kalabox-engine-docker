@@ -4,10 +4,12 @@
 var PROVIDER_VB_VERSION = '5.0.10';
 var PROVIDER_KALABOX_ISO = '1.9.1';
 var PROVIDER_MACHINE_VERSION = '0.5.2';
+var PROVIDER_MSYSGIT_VERSION = 'Git-1.9.5-preview20150319';
 
 module.exports = {
   PROVIDER_VB_VERSION: PROVIDER_VB_VERSION,
   PROVIDER_KALABOX_ISO: PROVIDER_KALABOX_ISO,
+  PROVIDER_MSYSGIT_VERSION: PROVIDER_MSYSGIT_VERSION,
   PROVIDER_MACHINE_VERSION: PROVIDER_MACHINE_VERSION,
   PROVIDER_DOWNLOAD_URL: {
     linux: {
@@ -48,8 +50,12 @@ module.exports = {
         'v1.8.0/boot2docker-v1.8.0-linux-amd64'
     },
     win32: {
-      b2d: 'https://github.com/boot2docker/windows-installer/releases/' +
-        'download/v1.8.0/docker-install.exe'
+      vb: 'http://download.virtualbox.org/virtualbox/' + PROVIDER_VB_VERSION +
+        '/VirtualBox-5.0.10-104061-Win.exe',
+      machine: 'https://github.com/docker/machine/releases/download/v' +
+        PROVIDER_MACHINE_VERSION + '/docker-machine_windows-amd64.zip',
+      msysgit: 'https://github.com/msysgit/msysgit/releases/download/' +
+        PROVIDER_MSYSGIT_VERSION + '/' + PROVIDER_MSYSGIT_VERSION + '.exe'
     },
     darwin: {
       vb: 'http://download.virtualbox.org/virtualbox/' + PROVIDER_VB_VERSION +

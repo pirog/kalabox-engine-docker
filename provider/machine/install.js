@@ -14,9 +14,10 @@ module.exports = function(kbox) {
   var _ = require('lodash');
 
   // Constants
-  var PROVIDER_VB_VERSION = '5.0.10';
-  var PROVIDER_KALABOX_ISO = '1.9.1';
-  var PROVIDER_MACHINE_VERSION = '0.5.2';
+  var PROVIDER_VB_VERSION = meta.PROVIDER_VB_VERSION;
+  var PROVIDER_KALABOX_ISO = meta.PROVIDER_KALABOX_ISO;
+  var PROVIDER_MACHINE_VERSION = meta.PROVIDER_MACHINE_VERSION;
+  var PROVIDER_MSYSGIT_VERSION = meta.PROVIDER_MSYSGIT_VERSION;
 
   /*
    * Adds the appropriate downloads to our list
@@ -41,7 +42,10 @@ module.exports = function(kbox) {
           state.downloads.push(meta.PROVIDER_DOWNLOAD_URL[platform].vb);
         }
 
-        // @todo: need to grab mysgit on windows
+        // Only grab msysgit on windows if needed
+        if (process.platform === 'win32' && util.needsMsysgit()) {
+          state.downloads.push(meta.PROVIDER_DOWNLOAD_URL.win32.msysgit);
+        }
 
       };
     });
@@ -150,22 +154,58 @@ module.exports = function(kbox) {
       };
       step.all.win32 = function(state) {
 
-        // Add the install B2D command if we need to
+        // All the temp directory
+        var tmp = kbox.util.disk.getTempDir();
+
+        // Add the install VB commands if we need to
         if (util.needsVB()) {
 
-          // Get the B2D pkg location
-          var pkgDir = kbox.util.disk.getTempDir();
-          var pkgName = path.basename(meta.PROVIDER_DOWNLOAD_URL.win32.b2d);
-          var pkg = path.join(pkgDir, pkgName);
-          var infFile = path.join(pkgDir, path.basename(meta.PROVIDER_INF_URL));
+          // Get info about where the things are
+          var vb = path.basename(meta.PROVIDER_DOWNLOAD_URL.win32.vb);
+          var vbPkg = path.join(tmp, vb);
+          var extractDir = path.join(tmp, 'vbox');
 
-          // Build the install command and add it
-          var cmd = kbox.util.pkg.installCmd(pkg, infFile);
-          state.adminCommands.push(cmd);
+          // Build the extraction command
+          var extractOptions = [
+            '-extract',
+            '-path "' + extractDir + '"',
+            '-silent'
+          ];
+          var extractCmd = kbox.util.pkg.installCmd(vbPkg, extractOptions);
+          state.adminCommands.push(extractCmd);
+
+          // Build the install command
+          var vbInstallOptions = ['/qn', '/passive', '/quiet'];
+          // Split into parts VIRTUALBOX|VERSION|RELEASE|ARCH
+          var pts = vb.split('-');
+          var msiName = [pts[0], pts[1], 'r' + pts[2], 'MultiArch_amd64.msi'];
+          var msiPkg = path.join(extractDir, msiName.join('-'));
+          var installVbCmd = kbox.util.pkg.installCmd(msiPkg, vbInstallOptions);
+          state.adminCommands.push(installVbCmd);
 
         }
 
-        // @todo: need to install mysysgit as well
+        // Add the mysysgit installer command if needed
+        if (util.needsMsysgit()) {
+
+          // Get info about where the things are
+          var mGit = path.basename(meta.PROVIDER_DOWNLOAD_URL.win32.msysgit);
+          var mGitPkg = path.join(tmp, mGit);
+
+          // Build the extraction command
+          var mGitOptions = [
+            '/SP',
+            '/SILENT',
+            '/VERYSILENT',
+            '/SUPRESSMSGBOXES',
+            '/NOCANCEL',
+            '/NOREBOOT',
+            '/NORESTART',
+            '/CLOSEAPPLICATIONS'
+          ];
+          var installmGitCmd = kbox.util.pkg.installCmd(mGitPkg, mGitOptions);
+          state.adminCommands.push(installmGitCmd);
+        }
 
       };
 
@@ -192,6 +232,13 @@ module.exports = function(kbox) {
       if (util.needsVB()) {
         state.updateCurrentInstall({
           PROVIDER_VB_VERSION: PROVIDER_VB_VERSION
+        });
+      }
+
+      // Update our current install to reflect msysgit installed
+      if (process.platform === 'win32' && util.needsMsysgit()) {
+        state.updateCurrentInstall({
+          PROVIDER_MSYSGIT_VERSION: PROVIDER_MSYSGIT_VERSION
         });
       }
 

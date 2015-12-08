@@ -312,11 +312,12 @@ module.exports = function(kbox) {
     // Get status.
     return Promise.retry(function(counter) {
       log.debug(format('Checking status [%s].', counter));
+      var finder = (process.platform === 'win32') ? 'findstr' : 'grep';
       var cmd = [
         MACHINE_EXECUTABLE,
         'ls', '--filter "name=' + MACHINE_NAME + '"',
         '|',
-        'grep ' + MACHINE_NAME
+        [finder, MACHINE_NAME].join(' ')
       ];
       return bin.sh(cmd);
     })
