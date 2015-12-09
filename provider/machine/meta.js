@@ -32,8 +32,8 @@ module.exports = {
             'libgomp',
             'glibc-headers',
             'glibc-devel',
-            'kernel-headers',
-            'kernel-devel',
+            'kernel-headers-$(uname -r)',
+            'kernel-devel-$(uname -r)',
             'dkms'
           ],
           'packages': [
