@@ -91,8 +91,8 @@ module.exports = function(kbox) {
         return Promise.resolve(false);
       })
 
-      .then(function(modulesUp) {
-        if (modulesUp) {
+      .then(function(err) {
+        if (_.isEmpty(err)) {
           return Promise.resolve(true);
         } else {
           return Promise.resolve(false);
