@@ -375,7 +375,13 @@ module.exports = function(kbox) {
     // Get status.
     return Promise.retry(function(counter) {
       log.debug(format('Checking for new ISO [%s].', counter));
-      return shProvider(['upgrade']);
+      return shProvider(['upgrade'])
+      .catch(function(/*err*/) {
+        return up()
+        .then(function() {
+          throw new VError('Need to start the machine to upgrade');
+        });
+      });
     });
   };
 

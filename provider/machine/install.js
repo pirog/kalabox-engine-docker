@@ -263,13 +263,8 @@ module.exports = function(kbox) {
         .then(function(installed) {
           if (installed) {
 
-            // Upgrade demands we are up
-            return kbox.engine.provider().call('up')
-
             // Try to do the iso update
-            .then(function() {
-              return kbox.engine.provider().call('getIso');
-            })
+            return kbox.engine.provider().call('getIso')
 
             // Update the install state
             .then(function() {
