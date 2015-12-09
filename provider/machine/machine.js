@@ -76,11 +76,36 @@ module.exports = function(kbox) {
     // Run a provider command in a shell.
     return bin.sh([MACHINE_EXECUTABLE].concat(cmd).concat(useMachine()))
 
-    // Some errors are actually ok
+    // See if we need to recompile our kernel mod
+    // on linux also we assume a few select errors
+    // are actually ok
     .catch(function(err) {
-      if (shProviderError(err.message)) {
-        throw new VError(err);
-      }
+
+      // Let's see if this problem is caused by missing VB's kernel modules
+      // @todo: On machine we might need to stop first here
+      return bin.checkVBModules()
+
+      // If our modules are down let's try to get them into a good state
+      .then(function(modulesAreUp) {
+        if (!modulesAreUp) {
+
+          // Attempt to bring them up
+          return bin.bringVBModulesUp()
+
+          // Now retry the create regardless
+          .then(function() {
+            throw new VError('Retrying...');
+          });
+        }
+      })
+
+      // If our kernel isn't the issue
+      .then(function() {
+        if (shProviderError(err.message)) {
+          throw new VError(err);
+        }
+      });
+
     });
 
   };
@@ -171,30 +196,8 @@ module.exports = function(kbox) {
 
       // Handle relevant create errors
       .catch(function(err) {
-
-        // Let's see if this problem is caused by missing VB's kernel modules
-        // @todo: On machine we might need to stop first here
-        return bin.checkVBModules()
-
-        // If our modules are down let's try to get them into a good state
-        .then(function(modulesAreUp) {
-          if (!modulesAreUp) {
-
-            // Attempt to bring them up
-            return bin.bringVBModulesUp()
-
-            // Now retry the create regardless
-            .then(function() {
-              throw new VError('Retrying...');
-            });
-          }
-        })
-
-        .then(function() {
-          log.info('Initializing docker machine failed, retrying.', err);
-          throw new VError(err, 'Error initializing machine.', run);
-        });
-
+        log.info('Initializing docker machine failed, retrying.', err);
+        throw new VError(err, 'Error initializing machine.', run);
       })
 
       // Restart to set BIP correctly
