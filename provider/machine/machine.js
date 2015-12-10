@@ -14,6 +14,7 @@ module.exports = function(kbox) {
   // NPM modules
   var VError = require('verror');
   var _ = require('lodash');
+  var shellParser = require('node-shell-parser');
 
   // Kalabox modules
   var Promise = kbox.Promise;
@@ -131,9 +132,6 @@ module.exports = function(kbox) {
           var ssh = [MACHINE_EXECUTABLE, 'ssh'].concat(useMachine());
           var cmd = ['sudo', '/opt/bootsync.sh'];
           return bin.sh(ssh.concat(cmd))
-
-          // Give it a sec to set
-          .delay(2000)
 
           // Retry and see if we are good now
           .then(function() {
@@ -315,20 +313,20 @@ module.exports = function(kbox) {
     // Get status.
     return Promise.retry(function(counter) {
       log.debug(format('Checking status [%s].', counter));
-      var finder = (process.platform === 'win32') ? 'findstr' : 'grep';
-      var cmd = [
-        MACHINE_EXECUTABLE,
-        'ls', '--filter "name=' + MACHINE_NAME + '"',
-        '|',
-        [finder, MACHINE_NAME].join(' ')
-      ];
-      return bin.sh(cmd);
+      return shProvider(['ls']);
     })
     // Do some lodash fu to get the status
     .then(function(result) {
-      var end = _.last(result.split(DEFAULT_DRIVER));
-      var status = _.head(end.split('tcp'));
-      return _.trim(_.trim(status.toLowerCase()));
+
+      // Find the status of our machine in a parsed result
+      var status = _.result(_.find(shellParser(result), function(machine) {
+        return machine.NAME === MACHINE_NAME;
+      }), 'STATE');
+
+      // Tell us WTFIGO
+      log.info(MACHINE_NAME + ' is ' + status);
+
+      return status.toLowerCase();
     });
 
   };
