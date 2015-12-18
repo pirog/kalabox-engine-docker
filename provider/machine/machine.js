@@ -31,8 +31,7 @@ module.exports = function(kbox) {
   var DEFAULT_DRIVER = 'virtualbox';
   var DEFAULT_ISO = 'https://api.github.com/repos/kalabox/kalabox-iso/releases';
   var DEFAULT_HOST_CIDR = '10.13.37.1/24';
-  var DEFAULT_DOCKER_BIP = '172.17.42.1/16';
-  var DEFAULT_DOCKER_DNS = ['172.17.42.1', '208.67.222.222', '208.67.220.220'];
+  var DEFAULT_DOCKER_DNS = ['172.17.0.1', '208.67.222.222', '208.67.220.220'];
   var DEFAULT_MEMORY = '2048';
 
   // Set of logging functions.
@@ -172,10 +171,10 @@ module.exports = function(kbox) {
       var initOptions = [
         '--virtualbox-boot2docker-url ' + DEFAULT_ISO,
         '--virtualbox-memory ' + DEFAULT_MEMORY,
-        '--virtualbox-hostonly-cidr ' + DEFAULT_HOST_CIDR,
+        '--virtualbox-hostonly-cidr ' + DEFAULT_HOST_CIDR
         // @todo: uncomment this in docker machine 0.5.3
         // '--virtualbox-host-dns-resolver',
-        '--engine-opt bip=' + DEFAULT_DOCKER_BIP
+        //'--engine-opt bip=' + DEFAULT_DOCKER_BIP
       ];
 
       // Add DNS
@@ -200,13 +199,13 @@ module.exports = function(kbox) {
 
       // Restart to set BIP correctly
       .then(function() {
-        return shProvider(['stop']);
+        //return shProvider(['stop']);
       })
 
       // Manually do VBOX dns handling
       // @todo: remove this when docker machine >= 0.5.3
       .then(function() {
-        return net.setHostDnsResolver();
+        //return net.setHostDnsResolver();
       })
 
       // Verify our networking is setup correctly on windows
@@ -218,7 +217,7 @@ module.exports = function(kbox) {
 
       // Turn the jam back on
       .then(function() {
-        return shProvider(['start']);
+        //return shProvider(['start']);
       });
 
     });
