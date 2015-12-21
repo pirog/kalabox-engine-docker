@@ -3,7 +3,7 @@
 // Constants
 var PROVIDER_VB_VERSION = '5.0.10';
 var PROVIDER_KALABOX_ISO = '1.9.1';
-var PROVIDER_MACHINE_VERSION = '0.5.2';
+var PROVIDER_MACHINE_VERSION = '0.5.4';
 var PROVIDER_MSYSGIT_VERSION = 'Git-1.9.5-preview20150319';
 
 module.exports = {
@@ -47,13 +47,13 @@ module.exports = {
         }
       },
       machine: 'https://github.com/docker/machine/releases/download/v' +
-        PROVIDER_MACHINE_VERSION + '/docker-machine_linux-amd64.zip'
+        PROVIDER_MACHINE_VERSION + '/docker-machine_linux-amd64'
     },
     win32: {
       vb: 'http://download.virtualbox.org/virtualbox/' + PROVIDER_VB_VERSION +
         '/VirtualBox-5.0.10-104061-Win.exe',
       machine: 'https://github.com/docker/machine/releases/download/v' +
-        PROVIDER_MACHINE_VERSION + '/docker-machine_windows-amd64.zip',
+        PROVIDER_MACHINE_VERSION + '/docker-machine_windows-amd64.exe',
       msysgit: 'https://github.com/msysgit/msysgit/releases/download/' +
         PROVIDER_MSYSGIT_VERSION + '/' + PROVIDER_MSYSGIT_VERSION + '.exe'
     },
@@ -61,7 +61,7 @@ module.exports = {
       vb: 'http://download.virtualbox.org/virtualbox/' + PROVIDER_VB_VERSION +
         '/VirtualBox-5.0.10-104061-OSX.dmg',
       machine: 'https://github.com/docker/machine/releases/download/v' +
-        PROVIDER_MACHINE_VERSION + '/docker-machine_darwin-amd64.zip'
+        PROVIDER_MACHINE_VERSION + '/docker-machine_darwin-amd64'
     }
   }
 };

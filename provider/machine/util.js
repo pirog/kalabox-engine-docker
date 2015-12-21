@@ -119,23 +119,25 @@ module.exports = function(kbox) {
    */
   var installMachine = function(state) {
 
-    // Get temp path
+    // Source path
     var downloadDir = kbox.util.disk.getTempDir();
+    var srcFile = meta.PROVIDER_DOWNLOAD_URL[process.platform].machine;
 
     // Destination path
     var sysConfRoot = kbox.core.deps.get('config').sysConfRoot;
     var machineBinDest = path.join(sysConfRoot, 'bin');
+    var destFile = 'docker-machine';
+    var destExt = (process.platform === 'win32') ? '.exe' : '';
 
-    // Move all docker-machine* files over to the kbox bin location
-    _.forEach(fs.readdirSync(downloadDir), function(file) {
-      if (_.includes(file, 'docker-machine')) {
-        var source = path.join(downloadDir, file);
-        var dest = path.join(machineBinDest, file);
-        state.log.debug('INSTALLING ' + file + ' FROM => ' + downloadDir);
-        fs.copySync(source, dest, {clobber: true});
-        state.log.debug('INSTALLED ' + file + ' TO => ' + machineBinDest);
-      }
-    });
+    // Move the dm over to the kbox bin location
+    var source = path.join(downloadDir, path.basename(srcFile));
+    var dest = path.join(machineBinDest, destFile + destExt);
+    state.log.debug('INSTALLING ' + source + ' FROM => ' + downloadDir);
+    fs.copySync(source, dest, {clobber: true});
+    state.log.debug('INSTALLED ' + dest + ' TO => ' + machineBinDest);
+
+    // Make executable
+    fs.chmodSync(dest, '0755');
 
   };
 
