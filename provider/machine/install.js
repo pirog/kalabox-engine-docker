@@ -17,6 +17,7 @@ module.exports = function(kbox) {
   var PROVIDER_VB_VERSION = meta.PROVIDER_VB_VERSION;
   var PROVIDER_KALABOX_ISO = meta.PROVIDER_KALABOX_ISO;
   var PROVIDER_MACHINE_VERSION = meta.PROVIDER_MACHINE_VERSION;
+  var PROVIDER_COMPOSE_VERSION = meta.PROVIDER_COMPOSE_VERSION;
   var PROVIDER_MSYSGIT_VERSION = meta.PROVIDER_MSYSGIT_VERSION;
 
   /*
@@ -37,6 +38,11 @@ module.exports = function(kbox) {
           state.downloads.push(meta.PROVIDER_DOWNLOAD_URL[platform].machine);
         }
 
+        // Only grab docker compose if needed
+        if (util.needsCompose()) {
+          state.downloads.push(meta.PROVIDER_DOWNLOAD_URL[platform].compose);
+        }
+
         // Only grab VirtualBox if needed
         // @todo: On linux we install with normal package manager
         if (process.platform !== 'linux' && util.needsVB()) {
@@ -55,7 +61,7 @@ module.exports = function(kbox) {
   /*
    * Installs the machine bin into the correct location
    */
-  if (util.needsMachine()) {
+  if (util.needsMachine() || util.needsCompose()) {
     kbox.install.registerStep(function(step) {
       step.name = 'engine-docker-provider-machine';
       step.deps = ['core-downloads'];
@@ -64,15 +70,25 @@ module.exports = function(kbox) {
       step.all = function(state, done) {
 
         // Install the machine
-        util.installMachine(state);
+        if (util.needsMachine()) {
+          util.installMachine(state);
+        }
 
-        // We need to do this to make sure the machine bin is good before we use it
+        // Install the compose
+        if (util.needsCompose()) {
+          util.installCompose(state);
+        }
+
+        // We need to do this to make sure the docker bins is good before we use it
         return Promise.delay(2000)
 
         // Update our current install
         .then(function() {
           state.updateCurrentInstall({
             PROVIDER_MACHINE_VERSION: PROVIDER_MACHINE_VERSION
+          });
+          state.updateCurrentInstall({
+            PROVIDER_COMPOSE_VERSION: PROVIDER_COMPOSE_VERSION
           });
         })
 
